@@ -1,0 +1,59 @@
+/* Capa de usabilidad y didáctica del multigás. No modifica la lógica técnica del simulador. */
+
+.guide-tools{display:flex;align-items:center;gap:5px;margin-right:4px}
+.guide-tool-btn{min-height:36px;padding:7px 9px;display:inline-flex;align-items:center;gap:5px;border:1px solid #cbd8de;border-radius:10px;color:#244451;background:#fff;font-size:.72rem;font-weight:800;cursor:pointer}
+.guide-tool-btn b{display:grid;place-items:center;width:20px;height:20px;border-radius:7px;background:#edf4f5;color:#007b85;font-size:.72rem}
+.guide-tool-btn.active{border-color:#ffcf4a;background:#fff6d8;color:#5e4500}.guide-tool-btn.active b{background:#ffb600;color:#152330}
+
+.guided-card{margin-top:14px;padding:15px;border:1px solid #dce6e8;border-left:5px solid #ffb600;border-radius:16px;background:#fff;box-shadow:0 10px 28px rgba(24,55,67,.06)}
+.guided-card.complete{border-left-color:#70ad47}
+.guide-card-head{display:flex;justify-content:space-between;gap:10px;align-items:center;color:#007b85;font-size:.68rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.guide-progress-shell{height:5px;margin:9px 0 12px;overflow:hidden;border-radius:99px;background:#e7eef0}
+.guide-progress-shell i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#ffb600,#70ad47);transition:width .25s ease}
+.guided-card h3{margin:0;color:#00205b;font-size:1rem}.guided-card>p{margin:6px 0 0;color:#64748b;font-size:.78rem;line-height:1.45}
+.guide-checklist{margin:13px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;list-style:none}
+.guide-checklist li{min-width:0;padding:6px;display:flex;align-items:center;gap:5px;border:1px solid #e0e8ea;border-radius:9px;color:#72818a;background:#fafcfc;font-size:.65rem;font-weight:800}
+.guide-checklist i{width:19px;height:19px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;background:#e9eff1;color:#73858e;font-style:normal;font-size:.6rem}
+.guide-checklist li.current{border-color:#f2c54e;background:#fff9e8;color:#674d00}.guide-checklist li.current i{background:#ffb600;color:#102330}
+.guide-checklist li.done{border-color:#b9dfc8;background:#f0faf4;color:#286747}.guide-checklist li.done i{background:#70ad47;color:#071d10}
+.guide-card-actions{display:flex;gap:7px;margin-top:12px}.guide-card-actions button{min-height:40px;padding:8px 11px;border-radius:10px;font-size:.72rem;font-weight:850;cursor:pointer}
+#locateStepBtn{border:1px solid rgba(0,123,133,.35);color:#006a73;background:#edf9f9}#resetGuideBtn{border:1px solid #dbe4e6;color:#6c7b82;background:#fff}
+
+.guide-coach,.control-coach{width:min(430px,calc(100vw - 28px));padding:12px;position:fixed;z-index:70;right:16px;bottom:16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.1);border-radius:16px;color:#fff;background:rgba(5,28,40,.97);box-shadow:0 24px 65px rgba(0,0,0,.34);backdrop-filter:blur(16px)}
+.guide-coach-copy span,.guide-coach-copy strong,.guide-coach-copy p,.control-copy span,.control-copy strong,.control-copy p{display:block}.guide-coach-copy span,.control-copy span{margin-bottom:2px;color:#91e0dc;font-size:.6rem;font-weight:900;letter-spacing:.1em}.guide-coach-copy strong,.control-copy strong{font-size:.9rem}.guide-coach-copy p,.control-copy p{margin:3px 0 0;color:#bdd0d6;font-size:.72rem;line-height:1.35}
+.guide-coach>button{min-height:42px;padding:8px 10px;border:0;border-radius:10px;background:#ffb600;color:#122330;font-size:.7rem;font-weight:900;cursor:pointer}
+.guide-coach.advance{animation:guideAdvance .82s ease}@keyframes guideAdvance{0%,100%{transform:translateY(0)}45%{transform:translateY(-7px);box-shadow:0 28px 70px rgba(0,0,0,.4),0 0 0 7px rgba(255,182,0,.13)}}
+
+.control-coach{grid-template-columns:minmax(0,1fr);z-index:75}.control-actions{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px}.control-actions button{min-height:40px;border-radius:9px;border:1px solid rgba(255,255,255,.16);background:#102f3e;color:#e5f2f4;font-size:.7rem;font-weight:850;cursor:pointer}.control-actions #controlNext{background:#ffb600;color:#102330;border-color:#ffb600}.control-actions #controlClose{width:40px}
+.coach-target,.control-target{position:relative;z-index:80!important;animation:targetPulse 1s ease-in-out 3;box-shadow:0 0 0 5px rgba(255,182,0,.28),0 0 0 9px rgba(0,123,133,.18)!important}@keyframes targetPulse{50%{box-shadow:0 0 0 8px rgba(255,182,0,.38),0 0 0 13px rgba(0,123,133,.12)!important}}
+
+.tutorial-dialog,.help-dialog{width:min(760px,calc(100vw - 26px));max-height:min(90dvh,850px);padding:0;overflow:auto;border:0;border-radius:22px;color:#17313d;background:#fff;box-shadow:0 36px 100px rgba(0,24,52,.34)}
+.tutorial-dialog::backdrop,.help-dialog::backdrop{background:rgba(0,17,32,.72);backdrop-filter:blur(4px)}
+.tutorial-dialog form,.help-dialog form{position:relative;padding:24px}.dialog-close{position:absolute;right:12px;top:12px;width:40px;height:40px;border:0;border-radius:50%;background:#edf3f4;color:#17313d;font-size:1.35rem;cursor:pointer}
+.tutorial-brand{display:flex;align-items:center;gap:9px;color:#007b85;font-size:.68rem;font-weight:900;letter-spacing:.11em}.tutorial-brand i{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:#ffb600;color:#102330;font-style:normal;font-size:1rem}
+.tutorial-status{margin:16px 0 18px;display:flex;align-items:center;justify-content:space-between;color:#64748b;font-size:.72rem;font-weight:800}.tutorial-status>div{display:flex;gap:5px}.tutorial-status i{width:28px;height:4px;border-radius:99px;background:#e1e8ea}.tutorial-status i.active{background:#007b85}
+.tutorial-page .eyebrow{margin-bottom:6px}.tutorial-page h2,.help-dialog h2{margin:0 42px 8px 0;color:#00205b;font-size:clamp(1.45rem,4vw,2rem);line-height:1.05}.tutorial-page>p{color:#64748b;line-height:1.55}
+.tutorial-flow{margin:18px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;list-style:none}.tutorial-flow li{padding:12px 8px;border:1px solid #e0e8ea;border-radius:12px;background:#f8fbfb;text-align:center}.tutorial-flow i{display:grid;place-items:center;width:25px;height:25px;margin:0 auto 6px;border-radius:50%;background:#082c3b;color:#fff;font-style:normal;font-size:.7rem;font-weight:900}.tutorial-flow span{font-size:.75rem;font-weight:850;color:#244450}
+.tutorial-concepts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}.tutorial-concepts article{padding:14px;border-radius:14px;border:1px solid #dfe8ea;background:#f8fbfb}.tutorial-concepts strong{display:block;color:#00205b;font-size:1.3rem}.tutorial-concepts span{display:block;margin:4px 0;color:#244450;font-size:.82rem;font-weight:800}.tutorial-concepts small{color:#64748b;line-height:1.4}
+.tutorial-callout{padding:13px;border-radius:12px;background:#eef8f8;color:#28545a!important;font-size:.8rem}.tutorial-callout.warning{background:#fff5da;color:#735400!important}
+.tutorial-tools{display:grid;gap:8px;margin-top:15px}.tutorial-tools div{display:flex;gap:10px;align-items:flex-start;padding:11px;border:1px solid #e1e8ea;border-radius:12px}.tutorial-tools i{display:grid;place-items:center;flex:0 0 28px;height:28px;border-radius:9px;background:#0a3140;color:#8ce0dc;font-style:normal;font-weight:900}.tutorial-tools strong,.tutorial-tools span{display:block}.tutorial-tools strong{color:#17313d;font-size:.82rem}.tutorial-tools span{margin-top:2px;color:#64748b;font-size:.74rem}
+.tutorial-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:22px}.tutorial-actions>div{display:flex;gap:7px}.tutorial-actions button,.dialog-actions button{min-height:43px;padding:9px 13px;border-radius:10px;font-size:.76rem;font-weight:850;cursor:pointer}.tutorial-actions button{border:1px solid #d9e4e6;background:#fff;color:#31515d}.tutorial-actions .primary,.dialog-actions .primary{border-color:#007b85;background:#007b85;color:#fff}
+
+.manual-search{width:100%;min-height:48px;margin:14px 0;padding:10px 13px;border:1px solid #cedcdf;border-radius:12px;font:inherit;font-size:16px;outline:none}.manual-search:focus{border-color:#007b85;box-shadow:0 0 0 3px rgba(0,123,133,.12)}
+.manual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.manual-topic{padding:13px;border:1px solid #e0e8ea;border-radius:13px;background:#f9fbfb}.manual-topic h3{margin:0 0 5px;color:#00205b;font-size:.9rem}.manual-topic p{margin:0;color:#64748b;font-size:.75rem;line-height:1.45}.manual-topic b{color:#007b85}.manual-empty{padding:16px;text-align:center;color:#64748b}.dialog-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:16px}
+
+body.guided-mode .workspace{padding-bottom:120px}
+
+@media(max-width:900px){
+  .member-zone{flex-wrap:nowrap}.guide-tools{order:-1;margin-right:0}.guide-tool-btn{min-width:38px;min-height:38px;padding:6px}.guide-tool-btn span{display:none}.guide-tool-btn b{width:24px;height:24px}
+  .guide-checklist{display:flex;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}.guide-checklist::-webkit-scrollbar{display:none}.guide-checklist li{flex:0 0 auto;min-width:91px}
+  .guide-card-actions button{flex:1}
+  .guide-coach,.control-coach{left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));width:auto;border-radius:14px}.guide-coach{grid-template-columns:minmax(0,1fr) auto}.guide-coach>button{min-width:82px}
+  body.guided-mode .workspace{padding-bottom:155px}
+  .tutorial-dialog,.help-dialog{width:calc(100vw - 14px);max-height:calc(100dvh - 14px)}.tutorial-dialog form,.help-dialog form{padding:20px 15px}.tutorial-flow{grid-template-columns:repeat(2,1fr)}.tutorial-concepts,.manual-grid{grid-template-columns:1fr}.tutorial-actions{align-items:stretch;flex-direction:column-reverse}.tutorial-actions>div{display:grid;grid-template-columns:1fr 1fr}.tutorial-actions button{width:100%}.tutorial-actions #tutorialStartBtn{grid-column:1/-1}
+}
+
+@media(max-width:520px){
+  .guide-coach-copy strong,.control-copy strong{font-size:.84rem}.guide-coach-copy p,.control-copy p{font-size:.69rem}.guide-coach{padding:10px}.guide-coach>button{min-height:40px;padding-inline:8px;font-size:.65rem}
+  .guided-card{padding:13px}.guided-card h3{font-size:.93rem}.guided-card>p{font-size:.74rem}
+}
