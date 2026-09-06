@@ -1,0 +1,255 @@
+/* Capa mobile-first del simulador multigás. Se carga después de styles.css. */
+
+:root{
+  --mobile-safe-bottom:max(14px,env(safe-area-inset-bottom));
+}
+
+html{-webkit-text-size-adjust:100%}
+button,input,select{touch-action:manipulation}
+button{-webkit-tap-highlight-color:transparent}
+
+#powerBtn,
+.device-buttons button,
+.quick-actions button,
+.position-buttons button,
+.segmented button,
+.tabs button{
+  user-select:none;
+  -webkit-user-select:none;
+}
+
+#powerBtn{
+  touch-action:none;
+  position:relative;
+  z-index:8;
+}
+
+#powerBtn.power-starting{
+  transform:translateY(2px) scale(.96);
+  filter:brightness(1.12);
+}
+
+.mobile-power-hint{
+  display:none;
+}
+
+@media (max-width:900px){
+  body:not(.auth-locked){
+    background:#eef4f5;
+    overflow-x:hidden;
+  }
+
+  .topbar{
+    position:sticky;
+    top:0;
+    z-index:50;
+    height:auto;
+    min-height:62px;
+    padding:9px 12px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:
+      "brand member"
+      "state state";
+    gap:7px 10px;
+    background:rgba(249,252,252,.96);
+  }
+
+  .topbar-brand{grid-area:brand;min-width:0;gap:8px}
+  .topbar-brand div{min-width:0}
+  .topbar-brand b{font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar-brand small{font-size:.6rem}
+  .brand-mark.compact .brand-plus{width:26px;height:26px}
+  .brand-mark.compact>span:last-child{display:none}
+
+  .member-zone{grid-area:member;gap:5px}
+  .member-zone #memberName{display:none}
+  .member-zone .ghost-btn{min-height:40px;padding:7px 10px;background:#eef3f4}
+
+  .topbar-center{
+    grid-area:state;
+    justify-content:space-between;
+    width:100%;
+    gap:7px;
+  }
+  .state-pill,.clock-pill{font-size:.63rem;padding:6px 9px}
+
+  .workspace{
+    display:flex;
+    flex-direction:column;
+    width:100%;
+    max-width:none;
+    padding:10px 10px calc(22px + var(--mobile-safe-bottom));
+    gap:12px;
+  }
+
+  .instrument-stage{
+    order:1;
+    width:100%;
+    min-height:0;
+    padding:8px 0 4px;
+    overflow:visible;
+    border-radius:24px;
+    background:linear-gradient(155deg,#e9f3f3,#f8fbfb 58%,#edf3ee);
+    border:1px solid #dce8e8;
+  }
+
+  .mission-rail{order:2;width:100%}
+  .data-rail{order:3;width:100%}
+
+  .panel{
+    border-radius:20px;
+    padding:16px;
+    box-shadow:0 8px 28px rgba(24,55,67,.07);
+  }
+
+  .stage-ambient span:nth-child(1){width:240px;height:240px;left:-20%;top:0}
+  .stage-ambient span:nth-child(2){width:260px;height:260px;right:-22%;bottom:4%}
+  .stage-ambient span:nth-child(3){display:none}
+
+  .device-wrap{
+    width:100%;
+    padding:0 8px 8px;
+    display:grid;
+    place-items:center;
+  }
+
+  .gas-device{
+    width:min(86vw,318px);
+    max-width:318px;
+    filter:drop-shadow(0 17px 26px rgba(13,38,49,.20));
+  }
+
+  .device-top{height:60px;margin:0 24px}
+  .device-hanger{width:82px;height:23px}
+  .alarm-window{width:63px;height:26px;top:20px}
+  .sensor-deck{height:80px;padding:0 17px;gap:9px;grid-template-columns:1fr 1fr 1fr 38px}
+  .sensor-port{width:45px;height:45px}
+  .siren-grille{height:47px;gap:4px}
+  .siren-grille span{height:38px}
+  .device-face{padding:15px 18px 20px;border-radius:0 0 29px 29px}
+  .device-id{margin-bottom:9px}
+  .device-id span{font-size:.62rem}
+  .device-id b{font-size:1.05rem}
+  .device-id small{font-size:.58rem}
+
+  .lcd{
+    min-height:205px;
+    border-radius:15px;
+  }
+
+  .device-buttons{
+    margin-top:14px;
+    gap:12px;
+  }
+
+  .device-buttons button{
+    min-width:58px;
+    min-height:58px;
+  }
+
+  .device-buttons .power-key{
+    min-width:70px;
+    min-height:70px;
+  }
+
+  .device-buttons button span{pointer-events:none}
+  .device-buttons button small{pointer-events:none}
+
+  .quick-actions{
+    width:100%;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    padding:4px 10px 10px;
+  }
+
+  .quick-actions button{
+    min-height:58px;
+    border-radius:15px;
+    padding:10px 9px;
+  }
+
+  .mobile-power-hint{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:calc(100% - 20px);
+    margin:0 10px 8px;
+    padding:9px 11px;
+    border-radius:13px;
+    background:#082635;
+    color:#e9fbfa;
+    font-size:.78rem;
+    font-weight:700;
+    text-align:center;
+  }
+  .mobile-power-hint i{
+    width:8px;height:8px;border-radius:50%;background:#ffb600;box-shadow:0 0 0 5px rgba(255,182,0,.12)
+  }
+  .mobile-power-hint.is-on{background:#e1f3e9;color:#235e3d}
+  .mobile-power-hint.is-on i{background:#55ad76;box-shadow:0 0 0 5px rgba(85,173,118,.12)}
+
+  .scenario-visual{padding:12px}
+  .vessel{height:145px}
+  .position-buttons button{min-height:42px;font-size:.72rem}
+
+  .segmented button,.tabs button{min-height:42px}
+  .select-control{min-height:48px;font-size:16px}
+
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .alarm-editor input{min-height:44px;font-size:16px}
+
+  .learning-drawer{
+    margin:0 10px calc(12px + var(--mobile-safe-bottom));
+    border-radius:18px;
+  }
+
+  .app-footer{
+    padding:16px 14px calc(18px + var(--mobile-safe-bottom));
+    text-align:center;
+    gap:6px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+}
+
+@media (max-width:520px){
+  .login-gate{overflow:auto}
+  .login-shell{
+    min-height:100dvh;
+    display:block;
+    padding:22px 14px calc(24px + env(safe-area-inset-bottom));
+  }
+  .login-brand{padding:4px 4px 16px}
+  .login-brand .brand-kicker{margin:18px 0 7px;font-size:.66rem}
+  .login-brand h1{font-size:2.65rem;line-height:.92}
+  .login-lead{font-size:.95rem;margin:12px 0}
+  .login-sensor-strip{margin-top:14px;gap:6px}
+  .login-sensor-strip span{padding:7px 10px;font-size:.7rem}
+  .login-card-wrap{width:100%;justify-self:auto}
+  .login-card{padding:20px;border-radius:22px}
+  .login-card h2{font-size:1.6rem}
+  .login-card input{min-height:52px;font-size:16px}
+  .login-submit{min-height:56px}
+
+  .gas-device{width:min(91vw,304px)}
+  .device-top{margin:0 21px}
+  .sensor-deck{margin:0 8px;padding:0 14px;gap:7px}
+  .device-face{margin:0 8px;padding:14px 15px 18px}
+  .lcd{min-height:195px}
+
+  .panel-head h2{font-size:1.2rem}
+  .mission-card{padding:12px}
+  .reference-card,.time-card,.coach-card{border-radius:15px}
+}
+
+@media (max-width:380px){
+  .workspace{padding-inline:7px}
+  .gas-device{width:292px;max-width:94vw}
+  .sensor-port{width:42px;height:42px}
+  .device-buttons button{min-width:54px;min-height:54px}
+  .device-buttons .power-key{min-width:66px;min-height:66px}
+  .quick-actions{padding-inline:7px}
+}
