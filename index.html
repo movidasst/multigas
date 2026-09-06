@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="mobile.css" />
 </head>
 <body class="auth-locked">
   <section id="loginGate" class="login-gate" aria-label="Acceso al simulador">
@@ -101,7 +102,7 @@
 
         <div class="mission-card">
           <span class="mission-number">01</span>
-          <div><b id="missionTitle">Enciende el equipo</b><p id="missionText">Mantén POWER para iniciar la autoprueba del detector.</p></div>
+          <div><b id="missionTitle">Enciende el equipo</b><p id="missionText">Toca POWER para iniciar la autoprueba del detector.</p></div>
         </div>
 
         <div class="sensor-profile-block">
@@ -155,7 +156,7 @@
                   <div class="gas-cell" data-gas="co"><span class="gas-name">CO</span><strong id="valCO">0</strong><small>ppm</small><em id="alarmCO"></em></div>
                   <div class="gas-cell" data-gas="toxic"><span id="toxicName" class="gas-name">H₂S</span><strong id="valToxic">0</strong><small>ppm</small><em id="alarmToxic"></em></div>
                 </div>
-                <div id="lcdFooter" class="lcd-footer">Mantén ● para encender</div>
+                <div id="lcdFooter" class="lcd-footer">Toca ● para encender</div>
               </div>
 
               <div class="device-buttons" aria-label="Botones del detector">
@@ -244,5 +245,6 @@
 
   <script src="auth.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="mobile.js" defer></script>
 </body>
 </html>
