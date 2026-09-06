@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#071c2c" />
+  <meta name="description" content="Simulador didáctico de detector multigás ocupacional de La Movida SST+." />
+  <title>Multigás virtual | La Movida SST+</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="auth-locked">
+  <section id="loginGate" class="login-gate" aria-label="Acceso al simulador">
+    <div class="login-atmosphere" aria-hidden="true">
+      <span class="orb orb-a"></span><span class="orb orb-b"></span><span class="grid-glow"></span>
+    </div>
+    <div class="login-shell">
+      <div class="login-brand">
+        <a class="brand-mark" href="https://www.movidasst.com" target="_blank" rel="noopener" aria-label="La Movida SST+">
+          <span class="brand-plus">+</span><span>MOVIDA</span>
+        </a>
+        <p class="brand-kicker">LABORATORIO VIRTUAL DE HIGIENE OCUPACIONAL</p>
+        <h1>Detector<br><strong>Multigás</strong></h1>
+        <p class="login-lead">Practica encendido, FAS, prueba funcional, alarmas, TWA/STEL y lectura de atmósferas sin exponer a nadie.</p>
+        <div class="login-sensor-strip" aria-hidden="true">
+          <span>O₂</span><span>LEL</span><span>CO</span><span>H₂S</span><span>PH₃</span>
+        </div>
+      </div>
+
+      <div class="login-card-wrap">
+        <div class="login-card">
+          <div class="login-status"><span class="pulse-dot"></span> Acceso para integrantes</div>
+          <h2>Abre el simulador</h2>
+          <p>Usa la misma cédula y clave de integrante de La Movida SST+.</p>
+          <form id="memberLogin" novalidate>
+            <label for="memberId">Cédula / documento</label>
+            <input id="memberId" name="memberId" inputmode="numeric" autocomplete="username" placeholder="Ej. 12345678" />
+            <label for="memberPassword">Clave de integrante</label>
+            <div class="password-field">
+              <input id="memberPassword" name="memberPassword" type="password" autocomplete="current-password" placeholder="Tu clave" />
+              <button id="togglePassword" type="button" aria-pressed="false">Mostrar</button>
+            </div>
+            <button id="loginSubmit" class="login-submit" type="submit"><span>Abrir simulador</span><b aria-hidden="true">→</b></button>
+            <p id="loginMessage" class="login-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="login-foot">
+            <span>¿Aún no eres integrante?</span>
+            <a href="https://registro.movidasst.com" target="_blank" rel="noopener">Regístrate aquí</a>
+          </div>
+        </div>
+        <p class="login-note">Simulación didáctica. No sustituye entrenamiento con el equipo real ni procedimientos de la organización.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell" hidden aria-hidden="true">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <span class="brand-mark compact"><span class="brand-plus">+</span><span>MOVIDA</span></span>
+        <div><b>Multigás virtual</b><small>MXG–4 PRO SIM</small></div>
+      </div>
+      <div class="topbar-center">
+        <span id="globalState" class="state-pill state-off">EQUIPO APAGADO</span>
+        <span id="simClockBadge" class="clock-pill">x120 · 00:00</span>
+      </div>
+      <div class="member-zone">
+        <span class="member-dot"></span><span id="memberName">integrante</span>
+        <button id="logoutBtn" class="ghost-btn" type="button">Salir</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="mission-rail panel">
+        <div class="panel-head">
+          <div><span class="eyebrow">PRÁCTICA</span><h2>Escenario</h2></div>
+          <button id="newRunBtn" class="icon-btn" type="button" title="Reiniciar práctica">↻</button>
+        </div>
+        <label class="field-label" for="scenarioSelect">Ambiente</label>
+        <select id="scenarioSelect" class="select-control">
+          <option value="clean">Aire limpio / zona segura</option>
+          <option value="tank">Tanque con estratificación</option>
+          <option value="welding">Soldadura en espacio confinado</option>
+          <option value="leak">Fuga de gas combustible</option>
+          <option value="ph3">Fumigación de granos · PH₃</option>
+        </select>
+
+        <div class="scenario-visual" id="scenarioVisual">
+          <div class="vessel">
+            <span class="layer layer-top"></span><span class="layer layer-mid"></span><span class="layer layer-bottom"></span>
+            <div id="probeMarker" class="probe-marker"><i></i><b></b></div>
+          </div>
+          <div class="position-buttons" role="group" aria-label="Posición de medición">
+            <button type="button" data-position="top">Superior</button>
+            <button type="button" data-position="middle" class="active">Media</button>
+            <button type="button" data-position="bottom">Inferior</button>
+          </div>
+        </div>
+
+        <div class="mission-card">
+          <span class="mission-number">01</span>
+          <div><b id="missionTitle">Enciende el equipo</b><p id="missionText">Mantén POWER para iniciar la autoprueba del detector.</p></div>
+        </div>
+
+        <div class="sensor-profile-block">
+          <span class="field-label">Configuración de sensores</span>
+          <div class="segmented" id="profileSwitcher">
+            <button type="button" data-profile="standard" class="active">4G estándar</button>
+            <button type="button" data-profile="ph3">PH₃</button>
+          </div>
+          <p class="microcopy">El perfil PH₃ sustituye el canal H₂S por fosfina.</p>
+        </div>
+
+        <div class="fault-block">
+          <span class="field-label">Condición didáctica</span>
+          <select id="faultSelect" class="select-control small">
+            <option value="none">Sin falla</option>
+            <option value="blocked">Entrada de sensor parcialmente bloqueada</option>
+            <option value="poisoned">Sensor LEL sensibilizado / envenenado</option>
+            <option value="airflow">Velocidad de aire &gt; 6 m/s</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="instrument-stage">
+        <div class="stage-ambient" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="device-wrap">
+          <div id="device" class="gas-device state-offline" aria-label="Detector multigás virtual">
+            <div class="device-top">
+              <div class="alarm-window alarm-left"><i></i><i></i><i></i></div>
+              <div class="device-hanger"></div>
+              <div class="alarm-window alarm-right"><i></i><i></i><i></i></div>
+            </div>
+
+            <div class="sensor-deck" aria-hidden="true">
+              <div class="sensor-port port-a"><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="sensor-port port-b"><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="sensor-port port-c"><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="siren-grille"><span></span><span></span><span></span></div>
+            </div>
+
+            <div class="device-face">
+              <div class="device-id"><span>MOVIDA SST+</span><b>MXG–4</b><small>PRO SIM</small></div>
+              <div id="lcd" class="lcd lcd-off">
+                <div class="lcd-topline">
+                  <span id="lcdStatus">OFF</span>
+                  <span class="lcd-icons"><i id="soundIcon">♪</i><i>▰</i><i id="batteryIcon">▮▮▮</i></span>
+                </div>
+                <div id="lcdMessage" class="lcd-message">POWER</div>
+                <div id="gasGrid" class="gas-grid" hidden>
+                  <div class="gas-cell" data-gas="o2"><span class="gas-name">O₂</span><strong id="valO2">20.8</strong><small>%vol</small><em id="alarmO2"></em></div>
+                  <div class="gas-cell" data-gas="lel"><span class="gas-name">LEL</span><strong id="valLEL">0</strong><small>%LEL</small><em id="alarmLEL"></em></div>
+                  <div class="gas-cell" data-gas="co"><span class="gas-name">CO</span><strong id="valCO">0</strong><small>ppm</small><em id="alarmCO"></em></div>
+                  <div class="gas-cell" data-gas="toxic"><span id="toxicName" class="gas-name">H₂S</span><strong id="valToxic">0</strong><small>ppm</small><em id="alarmToxic"></em></div>
+                </div>
+                <div id="lcdFooter" class="lcd-footer">Mantén ● para encender</div>
+              </div>
+
+              <div class="device-buttons" aria-label="Botones del detector">
+                <button id="upBtn" type="button" aria-label="Subir / página anterior"><span>▲</span></button>
+                <button id="powerBtn" class="power-key" type="button" aria-label="Power / aceptar"><span>●</span><small>POWER</small></button>
+                <button id="downBtn" type="button" aria-label="Bajar / página siguiente"><span>▼</span></button>
+              </div>
+              <div class="device-badge">SIMULACIÓN DIDÁCTICA</div>
+            </div>
+            <div class="device-bottom"><span></span><span></span><span></span></div>
+          </div>
+          <div class="device-shadow"></div>
+        </div>
+
+        <div class="quick-actions" aria-label="Acciones rápidas">
+          <button id="fasBtn" type="button"><span>01</span><b>FAS</b><small>Aire fresco</small></button>
+          <button id="bumpBtn" type="button"><span>02</span><b>BUMP</b><small>Prueba funcional</small></button>
+          <button id="resetAlarmBtn" type="button"><span>03</span><b>RESET</b><small>Reconocer alarma</small></button>
+          <button id="muteBtn" type="button" aria-pressed="false"><span>04</span><b>SONIDO</b><small id="muteLabel">Activo</small></button>
+        </div>
+      </section>
+
+      <aside class="data-rail panel">
+        <div class="panel-head">
+          <div><span class="eyebrow">INTERPRETACIÓN</span><h2>Lectura</h2></div>
+          <span id="qualityDot" class="quality-dot" title="Calidad de medición"></span>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Panel de información">
+          <button type="button" class="active" data-tab="exposure">Exposición</button>
+          <button type="button" data-tab="alarms">Alarmas</button>
+          <button type="button" data-tab="log">Registro</button>
+        </div>
+
+        <div class="tab-panel active" data-panel="exposure">
+          <div class="metric-grid">
+            <article><span>STEL / EC</span><strong id="stelValue">0.00</strong><small id="stelGas">ppm · tóxico</small></article>
+            <article><span>TWA / ED</span><strong id="twaValue">0.00</strong><small id="twaGas">ppm · tóxico</small></article>
+            <article><span>PEAK</span><strong id="peakValue">0</strong><small id="peakGas">ppm</small></article>
+            <article><span>O₂ MIN</span><strong id="o2MinValue">20.8</strong><small>% vol</small></article>
+          </div>
+          <div class="reference-card">
+            <div class="reference-head"><b>Referencia higiénica</b><span>INSST · LEP 2026</span></div>
+            <div id="referenceRows" class="reference-rows"></div>
+            <p>Los setpoints del detector son configurables y no equivalen necesariamente a los límites de exposición.</p>
+          </div>
+          <div class="time-card">
+            <div><b>Reloj de exposición acelerado</b><span id="simTimeText">00:00 simulados</span></div>
+            <label class="switch"><input id="acceleratedTime" type="checkbox" checked /><span></span></label>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="alarms">
+          <div class="alarm-editor-head">
+            <div><b>Setpoints configurables</b><small>LOW, HIGH, STEL y TWA según canal.</small></div>
+            <button id="restoreAlarmsBtn" class="text-btn" type="button">Restaurar</button>
+          </div>
+          <div id="alarmEditor" class="alarm-editor"></div>
+          <label class="check-row"><input id="latchHigh" type="checkbox" checked /> <span>Enclavar alarmas HIGH hasta RESET</span></label>
+        </div>
+
+        <div class="tab-panel" data-panel="log">
+          <div class="log-actions"><button id="saveSnapshotBtn" class="primary-small" type="button">Guardar lectura</button><button id="clearLogBtn" class="text-btn" type="button">Limpiar</button></div>
+          <div id="eventLog" class="event-log"><p class="empty-log">Aún no hay registros.</p></div>
+        </div>
+
+        <div id="coach" class="coach-card">
+          <span class="coach-icon">i</span>
+          <div><b id="coachTitle">Antes de medir</b><p id="coachText">Enciende el detector y observa la secuencia de autoprueba antes de entrar al área.</p></div>
+        </div>
+      </aside>
+    </main>
+
+    <section class="learning-drawer">
+      <button id="drawerToggle" class="drawer-toggle" type="button" aria-expanded="false"><span>Guía rápida</span><b>+</b></button>
+      <div id="drawerContent" class="drawer-content" hidden>
+        <article><span>FAS</span><h3>Ajuste en aire fresco</h3><p>Debe hacerse únicamente donde se tenga certeza de una atmósfera limpia. No sustituye la prueba funcional ni la calibración.</p></article>
+        <article><span>BUMP</span><h3>Prueba funcional</h3><p>Expone los sensores a gas de prueba para verificar respuesta y alarmas. Un fallo exige revisar/calibrar antes del uso.</p></article>
+        <article><span>SECUENCIA</span><h3>Oxígeno → inflamables → tóxicos</h3><p>En espacios confinados, la lectura debe considerar distintos niveles y cambios durante el trabajo.</p></article>
+        <article><span>PH₃</span><h3>Fosfina</h3><p>Canal electroquímico de 0–20 ppm, resolución 0,01 ppm y T90 didáctico basado en 15 s.</p></article>
+      </div>
+    </section>
+
+    <footer class="app-footer"><span>La Movida SST+ · De la Reacción a la Prevención</span><a href="https://www.movidasst.com" target="_blank" rel="noopener">www.movidasst.com</a><span>SIMULACIÓN DIDÁCTICA</span></footer>
+  </div>
+
+  <script src="auth.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
