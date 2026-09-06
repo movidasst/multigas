@@ -10,8 +10,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260905-2105" />
-  <link rel="stylesheet" href="mobile.css?v=20260905-2105" />
+  <link rel="stylesheet" href="styles.css?v=20260906-ux1" />
+  <link rel="stylesheet" href="mobile.css?v=20260906-ux1" />
+  <link rel="stylesheet" href="guide.css?v=20260906-ux1" />
 </head>
 <body class="auth-locked">
   <section id="loginGate" class="login-gate" aria-label="Acceso al simulador">
@@ -68,6 +69,11 @@
         <span id="simClockBadge" class="clock-pill">x120 · 00:00</span>
       </div>
       <div class="member-zone">
+        <div class="guide-tools" aria-label="Ayuda didáctica">
+          <button id="guidedToggle" class="guide-tool-btn active" type="button" aria-pressed="true" title="Activar o desactivar el modo guiado"><b>✓</b><span>Guía</span></button>
+          <button id="controlsBtn" class="guide-tool-btn" type="button" title="Conocer los botones del detector"><b>?</b><span>Botones</span></button>
+          <button id="helpBtn" class="guide-tool-btn" type="button" title="Abrir manual rápido"><b>≡</b><span>Manual</span></button>
+        </div>
         <span class="member-dot"></span><span id="memberName">integrante</span>
         <button id="logoutBtn" class="ghost-btn" type="button">Salir</button>
       </div>
@@ -100,10 +106,31 @@
           </div>
         </div>
 
-        <div class="mission-card">
-          <span class="mission-number">01</span>
+        <div class="mission-card" aria-live="polite">
+          <span class="mission-number">i</span>
           <div><b id="missionTitle">Enciende el equipo</b><p id="missionText">Toca POWER para iniciar la autoprueba del detector.</p></div>
         </div>
+
+        <section id="guideCard" class="guided-card" aria-live="polite">
+          <div class="guide-card-head"><span id="guideStep">Paso 1 de 11</span><span id="guidePercent">0%</span></div>
+          <div id="guideProgressBar" class="guide-progress-shell" role="progressbar" aria-label="Progreso de la práctica guiada" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="guideProgress"></i></div>
+          <h3 id="guideTitle">Enciende el detector</h3>
+          <p id="guideText">Toca POWER una vez y observa la autoprueba antes de medir.</p>
+          <ol class="guide-checklist" aria-label="Pasos de la práctica guiada">
+            <li data-guide-key="power"><i>1</i><span>POWER</span></li>
+            <li data-guide-key="fas"><i>2</i><span>FAS</span></li>
+            <li data-guide-key="bump"><i>3</i><span>BUMP</span></li>
+            <li data-guide-key="tank"><i>4</i><span>Tanque</span></li>
+            <li data-guide-key="top"><i>5</i><span>Superior</span></li>
+            <li data-guide-key="middle"><i>6</i><span>Media</span></li>
+            <li data-guide-key="bottom"><i>7</i><span>Inferior</span></li>
+            <li data-guide-key="pages"><i>8</i><span>PEAK/STEL/TWA</span></li>
+            <li data-guide-key="ph3"><i>9</i><span>PH₃</span></li>
+            <li data-guide-key="fumigation"><i>10</i><span>Fumigación</span></li>
+            <li data-guide-key="saved"><i>11</i><span>Guardar</span></li>
+          </ol>
+          <div class="guide-card-actions"><button id="locateStepBtn" type="button">Muéstrame dónde</button><button id="resetGuideBtn" type="button">Reiniciar guía</button></div>
+        </section>
 
         <div class="sensor-profile-block">
           <span class="field-label">Configuración de sensores</span>
@@ -237,10 +264,79 @@
     </section>
 
     <footer class="app-footer"><span>La Movida SST+ · De la Reacción a la Prevención</span><a href="https://www.movidasst.com" target="_blank" rel="noopener">www.movidasst.com</a><span>SIMULACIÓN DIDÁCTICA</span></footer>
+
+    <aside id="guideCoach" class="guide-coach" hidden aria-live="polite" aria-atomic="true">
+      <div class="guide-coach-copy"><span id="guideCoachStep">SIGUIENTE · PASO 1 DE 11</span><strong id="guideCoachTitle">Enciende el detector</strong><p id="guideCoachText">Toca POWER y espera la autoprueba.</p></div>
+      <button id="guideCoachLocate" type="button">Mostrarme</button>
+    </aside>
+
+    <aside id="controlCoach" class="control-coach" hidden aria-live="polite" aria-atomic="true">
+      <div class="control-copy"><span id="controlStep">BOTÓN 1 DE 7</span><strong id="controlTitle">POWER</strong><p id="controlText">Enciende o apaga el detector.</p></div>
+      <div class="control-actions"><button id="controlClose" type="button" aria-label="Cerrar recorrido de botones">×</button><button id="controlPrev" type="button">Anterior</button><button id="controlNext" type="button">Siguiente</button></div>
+    </aside>
+
+    <dialog id="tutorialDialog" class="tutorial-dialog" aria-labelledby="tutorialTitle">
+      <form method="dialog">
+        <button class="dialog-close" value="close" aria-label="Cerrar tutorial">×</button>
+        <div class="tutorial-brand"><i>+</i><span>LABORATORIO DIDÁCTICO · MULTIGÁS</span></div>
+        <div class="tutorial-status"><span id="tutorialCounter" aria-live="polite">1 de 3</span><div aria-hidden="true"><i class="active"></i><i></i><i></i></div></div>
+
+        <section class="tutorial-page" data-tutorial-step="0">
+          <p class="eyebrow">APRENDER EL FLUJO</p>
+          <h2 id="tutorialTitle">No se trata solo de mirar cuatro números</h2>
+          <p>La práctica te lleva por la lógica de uso: comprobar el equipo, establecer una referencia válida, verificar respuesta, muestrear la atmósfera e interpretar los resultados.</p>
+          <ol class="tutorial-flow"><li><i>1</i><span>Encender</span></li><li><i>2</i><span>FAS</span></li><li><i>3</i><span>BUMP</span></li><li><i>4</i><span>Muestrear</span></li><li><i>5</i><span>Interpretar</span></li><li><i>6</i><span>Registrar</span></li></ol>
+        </section>
+
+        <section class="tutorial-page" data-tutorial-step="1" hidden>
+          <p class="eyebrow">TRES COSAS DISTINTAS</p>
+          <h2>Lectura, alarma y límite ocupacional no son lo mismo</h2>
+          <div class="tutorial-concepts"><article><strong>LECTURA</strong><span>Lo que detecta el sensor</span><small>O₂, %LEL, CO, H₂S o PH₃ en ese punto y momento.</small></article><article><strong>ALARMA</strong><span>Setpoint configurable</span><small>LOW, HIGH, STEL o TWA según el canal.</small></article></div>
+          <p class="tutorial-callout">La referencia higiénica se muestra aparte. Un detector puede no estar en alarma y aun así requerir una evaluación ocupacional.</p>
+        </section>
+
+        <section class="tutorial-page" data-tutorial-step="2" hidden>
+          <p class="eyebrow">LA INTERFAZ TE ENSEÑA</p>
+          <h2>Usa la guía y aprende cada botón</h2>
+          <div class="tutorial-tools"><div><i>✓</i><span><strong>Recorrido guiado</strong><span>11 pasos que se completan con tus acciones.</span></span></div><div><i>?</i><span><strong>Botones</strong><span>POWER, ▲, ▼, FAS, BUMP, RESET y SONIDO, uno por uno.</span></span></div><div><i>≡</i><span><strong>Manual rápido</strong><span>Conceptos, alarmas, sensores y errores comunes sin salir de la práctica.</span></span></div></div>
+          <p class="tutorial-callout warning">Los resultados son simulados. No sustituyen el equipo real, su manual, calibración, procedimientos ni normativa aplicable.</p>
+        </section>
+
+        <div class="tutorial-actions"><button id="tutorialBackBtn" type="button">Anterior</button><div><button id="tutorialNextBtn" type="button">Siguiente</button><button id="tutorialStartBtn" class="primary" type="button" hidden>Comenzar práctica guiada</button></div></div>
+      </form>
+    </dialog>
+
+    <dialog id="helpDialog" class="help-dialog" aria-labelledby="helpTitle">
+      <form method="dialog">
+        <button class="dialog-close" value="close" aria-label="Cerrar manual">×</button>
+        <p class="eyebrow">MANUAL RÁPIDO</p>
+        <h2 id="helpTitle">¿Qué hace cada función?</h2>
+        <input id="manualSearch" class="manual-search" type="search" placeholder="Busca FAS, BUMP, STEL, PH₃, LEL…" autocomplete="off" />
+        <div class="manual-grid">
+          <article class="manual-topic"><h3>POWER</h3><p>Enciende/apaga con un toque. Al encender, observa la <b>autoprueba</b> antes de continuar.</p></article>
+          <article class="manual-topic"><h3>FAS</h3><p><b>Fresh Air Setup</b>: establece el cero en aire fresco conocido. No sustituye BUMP ni calibración.</p></article>
+          <article class="manual-topic"><h3>BUMP</h3><p>Prueba funcional: comprueba que los sensores respondan y que las alarmas se activen.</p></article>
+          <article class="manual-topic"><h3>▲ / ▼</h3><p>Navegan por LIVE, PEAK, STEL y TWA sin cambiar el escenario de medición.</p></article>
+          <article class="manual-topic"><h3>RESET</h3><p>Reconoce una alarma enclavada; no elimina la atmósfera peligrosa ni corrige la concentración.</p></article>
+          <article class="manual-topic"><h3>LOW / HIGH</h3><p>Son <b>setpoints configurables</b> del detector. No deben confundirse automáticamente con límites ocupacionales.</p></article>
+          <article class="manual-topic"><h3>STEL / EC</h3><p>Promedio de corta duración de 15 minutos para el canal tóxico seleccionado.</p></article>
+          <article class="manual-topic"><h3>TWA / ED</h3><p>Promedio ponderado referido a 8 horas. El reloj acelerado permite practicarlo sin esperar una jornada real.</p></article>
+          <article class="manual-topic"><h3>O₂</h3><p>Porcentaje en volumen de oxígeno. El simulador contempla alarma por valor bajo o alto.</p></article>
+          <article class="manual-topic"><h3>%LEL</h3><p>Porcentaje del límite inferior de explosividad. Es un canal para atmósferas combustibles, no un porcentaje de gas por volumen.</p></article>
+          <article class="manual-topic"><h3>CO / H₂S</h3><p>Canales tóxicos en ppm. Observa lectura instantánea y, cuando corresponda, STEL/TWA.</p></article>
+          <article class="manual-topic"><h3>PH₃ · Fosfina</h3><p>Canal electroquímico didáctico 0–20 ppm, resolución 0,01 ppm y respuesta progresiva T90 basada en 15 s.</p></article>
+          <article class="manual-topic"><h3>Superior / Media / Inferior</h3><p>Permiten practicar el muestreo en distintos niveles de un espacio con posible estratificación.</p></article>
+          <article class="manual-topic"><h3>Fallas didácticas</h3><p>Prueba entrada bloqueada, sensor LEL afectado o aire rápido y observa por qué una lectura puede ser engañosa.</p></article>
+        </div>
+        <p id="manualEmpty" class="manual-empty" hidden>No encontré ese término. Prueba con otra palabra.</p>
+        <div class="dialog-actions"><button id="manualTutorialBtn" type="button">Repetir tutorial</button><button id="manualControlsBtn" type="button">Conocer botones</button><button class="primary" value="close">Volver al equipo</button></div>
+      </form>
+    </dialog>
   </div>
 
-  <script src="auth.js?v=20260905-2105" defer></script>
-  <script src="app.js?v=20260905-2105" defer></script>
-  <script src="mobile.js?v=20260905-2105" defer></script>
+  <script src="auth.js?v=20260906-ux1" defer></script>
+  <script src="app.js?v=20260906-ux1" defer></script>
+  <script src="mobile.js?v=20260906-ux1" defer></script>
+  <script src="guide.js?v=20260906-ux1" defer></script>
 </body>
 </html>
