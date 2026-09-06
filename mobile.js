@@ -1,9 +1,83 @@
 (() => {
   'use strict';
 
+  /*
+   * Hotfix mobile-first:
+   * - elimina observadores que podían entrar en un ciclo de mutaciones y congelar la pantalla;
+   * - deja el login ligero e interactivo;
+   * - convierte POWER en una acción simple de un toque sin modificar la lógica técnica del simulador.
+   */
+
   const $ = (id) => document.getElementById(id);
   let initialized = false;
   let toggling = false;
+
+  const style = document.createElement('style');
+  style.id = 'multigas-login-interaction-fix';
+  style.textContent = `
+    #loginGate{position:relative;z-index:1000;pointer-events:auto!important}
+    #loginGate .login-atmosphere{pointer-events:none!important;z-index:0!important}
+    #loginGate .login-shell{position:relative;z-index:2;pointer-events:auto!important}
+    #loginGate .login-card-wrap,
+    #loginGate .login-card,
+    #loginGate #memberLogin,
+    #loginGate .password-field{position:relative;z-index:3;pointer-events:auto!important}
+    #loginGate input,
+    #loginGate button,
+    #loginGate label,
+    #loginGate a{pointer-events:auto!important}
+    #loginGate input{
+      position:relative;
+      z-index:5;
+      touch-action:auto!important;
+      -webkit-user-select:text!important;
+      user-select:text!important;
+      -webkit-touch-callout:default!important;
+    }
+  `;
+  document.head.appendChild(style);
+
+  /* Evita que el simulador esté renderizando cada 500 ms detrás del login. */
+  const nativeSetInterval = window.setInterval.bind(window);
+  const nativeClearInterval = window.clearInterval.bind(window);
+  const deferredIntervals = [];
+  let timersReleased = false;
+
+  function authVisible() {
+    const gate = $('loginGate');
+    return document.body.classList.contains('auth-locked') || (!!gate && !gate.hidden);
+  }
+
+  window.setInterval = function (callback, delay, ...args) {
+    if (!timersReleased && authVisible()) {
+      const token = { __multigasDeferredInterval: true, cancelled: false, realId: null };
+      deferredIntervals.push({ token, callback, delay, args });
+      return token;
+    }
+    return nativeSetInterval(callback, delay, ...args);
+  };
+
+  window.clearInterval = function (id) {
+    if (id && id.__multigasDeferredInterval) {
+      id.cancelled = true;
+      if (id.realId != null) nativeClearInterval(id.realId);
+      return;
+    }
+    nativeClearInterval(id);
+  };
+
+  function releaseTimers() {
+    if (timersReleased) return;
+    timersReleased = true;
+    window.setInterval = nativeSetInterval;
+    window.clearInterval = nativeClearInterval;
+    for (const item of deferredIntervals) {
+      if (!item.token.cancelled) {
+        item.token.realId = nativeSetInterval(item.callback, item.delay, ...item.args);
+      }
+    }
+    deferredIntervals.length = 0;
+  }
 
   function dispatchPointer(target, type) {
     try {
@@ -18,24 +92,17 @@
     }
   }
 
-  function isBooting() {
-    return ($('globalState')?.textContent || '').toUpperCase().includes('AUTOPRUEBA');
-  }
-
-  function isOff() {
-    return ($('globalState')?.textContent || '').toUpperCase().includes('APAGADO');
-  }
-
   function triggerPowerNow() {
     const button = $('powerBtn');
-    if (!button || toggling || isBooting()) return;
+    if (!button || toggling) return;
+
+    const stateText = ($('globalState')?.textContent || '').toUpperCase();
+    if (stateText.includes('AUTOPRUEBA')) return;
 
     toggling = true;
     button.classList.add('power-starting');
 
-    // app.js todavía conserva la lógica interna de pulsación prolongada.
-    // Para la interfaz pública la convertimos en una acción inmediata de un toque:
-    // interceptamos exclusivamente su temporizador de 520 ms y lo ejecutamos al instante.
+    /* app.js conserva internamente 520 ms. Solo para POWER lo ejecutamos de inmediato. */
     const realSetTimeout = window.setTimeout;
     try {
       window.setTimeout = function (fn, delay, ...args) {
@@ -52,8 +119,7 @@
       realSetTimeout(() => {
         button.classList.remove('power-starting');
         toggling = false;
-        fixPowerCopy();
-      }, 90);
+      }, 100);
     }
   }
 
@@ -62,14 +128,11 @@
     if (!button || button.dataset.simplePower === '1') return;
     button.dataset.simplePower = '1';
     button.addEventListener('contextmenu', (event) => event.preventDefault());
-
-    // Captura el click antes del listener antiguo de app.js.
     button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopImmediatePropagation();
       triggerPowerNow();
     }, true);
-
     button.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
@@ -78,81 +141,35 @@
     }, true);
   }
 
-  function fixPowerCopy() {
-    const off = isOff();
-    const missionTitle = $('missionTitle');
+  function setSimpleCopy() {
     const missionText = $('missionText');
     const lcdFooter = $('lcdFooter');
-    const coachText = $('coachText');
-
-    if (off) {
-      if (missionTitle) missionTitle.textContent = 'Enciende el equipo';
-      if (missionText) missionText.textContent = 'Toca POWER para iniciar la autoprueba del detector.';
-      if (lcdFooter) lcdFooter.textContent = 'Toca ● para encender';
-      if (coachText && /mant[eé]n|power/i.test(coachText.textContent || '')) {
-        coachText.textContent = 'Toca POWER para iniciar una nueva práctica.';
-      }
+    if (missionText && (($('globalState')?.textContent || '').includes('APAGADO'))) {
+      missionText.textContent = 'Toca POWER para iniciar la autoprueba del detector.';
     }
-  }
-
-  function ensureHint() {
-    const stage = document.querySelector('.instrument-stage');
-    const quick = document.querySelector('.quick-actions');
-    if (!stage || !quick) return;
-    let hint = $('mobilePowerHint');
-    if (!hint) {
-      hint = document.createElement('div');
-      hint.id = 'mobilePowerHint';
-      hint.className = 'mobile-power-hint';
-      hint.innerHTML = '<i aria-hidden="true"></i><span></span>';
-      stage.insertBefore(hint, quick);
+    if (lcdFooter && (($('globalState')?.textContent || '').includes('APAGADO'))) {
+      lcdFooter.textContent = 'Toca ● para encender';
     }
-    const span = hint.querySelector('span');
-    const off = isOff();
-    hint.classList.toggle('is-on', !off);
-    if (span) span.textContent = off ? 'Toca POWER para encender' : 'Equipo encendido · continúa con FAS y BUMP';
-  }
-
-  function improveMobileOrder() {
-    if (!window.matchMedia('(max-width: 900px)').matches) return;
-    const stage = document.querySelector('.instrument-stage');
-    if (!stage || stage.dataset.mobileScrolled === '1') return;
-    stage.dataset.mobileScrolled = '1';
-    window.setTimeout(() => {
-      if (!document.body.classList.contains('auth-locked') && window.scrollY < 30) {
-        stage.scrollIntoView({ block: 'start', behavior: 'auto' });
-        window.scrollBy(0, -70);
-      }
-    }, 120);
-  }
-
-  function observe() {
-    const nodes = [$('globalState'), $('lcdFooter'), $('missionText'), $('coachText')].filter(Boolean);
-    if (!nodes.length) return;
-    const observer = new MutationObserver(() => {
-      fixPowerCopy();
-      ensureHint();
-    });
-    nodes.forEach((node) => observer.observe(node, { childList: true, subtree: true, characterData: true }));
   }
 
   function init() {
     if (initialized) return;
     initialized = true;
     bindPower();
-    fixPowerCopy();
-    ensureHint();
-    observe();
-    improveMobileOrder();
+    setSimpleCopy();
 
     window.addEventListener('movida:simulator-open', () => {
+      releaseTimers();
       window.setTimeout(() => {
         bindPower();
-        fixPowerCopy();
-        ensureHint();
-        improveMobileOrder();
-      }, 40);
+        setSimpleCopy();
+      }, 0);
     });
+
+    const app = $('appShell');
+    if (app && !app.hidden && !document.body.classList.contains('auth-locked')) {
+      releaseTimers();
+    }
   }
 
   if (document.readyState === 'loading') {
