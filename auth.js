@@ -9,7 +9,26 @@
   const BLOCK_DURATION = 15 * 60 * 1000;
   const MAX_ATTEMPTS = 5;
   const REQUEST_TIMEOUT = 15000;
+  const MOBILE_LAYER_VERSION = '20260905-2';
   let accessTimer = null;
+
+  function loadEnhancementLayer() {
+    if (!document.querySelector('link[data-multigas-mobile]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `mobile.css?v=${MOBILE_LAYER_VERSION}`;
+      link.dataset.multigasMobile = '1';
+      document.head.appendChild(link);
+    }
+
+    if (!document.querySelector('script[data-multigas-mobile]')) {
+      const script = document.createElement('script');
+      script.src = `mobile.js?v=${MOBILE_LAYER_VERSION}`;
+      script.defer = true;
+      script.dataset.multigasMobile = '1';
+      document.head.appendChild(script);
+    }
+  }
 
   function readStoredJson(storage, key, fallback) {
     try { return JSON.parse(storage.getItem(key) || 'null') || fallback; }
@@ -118,6 +137,7 @@
     } finally { submit.disabled = false; if (label) label.textContent = 'Abrir simulador'; }
   }
   function init() {
+    loadEnhancementLayer();
     const form = $('memberLogin'); const toggle = $('togglePassword'); const logout = $('logoutBtn');
     if (!form || !toggle || !logout) return;
     form.addEventListener('submit', submitLogin);
