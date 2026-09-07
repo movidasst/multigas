@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071c2c" />
   <meta name="description" content="Simulador didáctico de detector multigás ocupacional de La Movida SST+." />
   <title>Multigás virtual | La Movida SST+</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/logo-movida-sst-plus.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -16,8 +16,12 @@
 
 <style id="movida-logo-2026">
 img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:center!important;border-radius:50%!important;filter:drop-shadow(0 7px 12px rgba(0,32,91,.35))!important}
-.login-brand img{width:86px!important;height:86px!important}
-.brand img,.brand-mark{width:62px!important;height:62px!important}
+.brand-logo{display:block;flex:0 0 auto}
+.login-brand-logo{width:104px!important;height:104px!important}
+.topbar-logo{width:52px!important;height:52px!important}
+.device-brand-logo{width:46px!important;height:46px!important;margin-right:4px}
+.tutorial-brand-logo{width:42px!important;height:42px!important}
+@media(max-width:640px){.login-brand-logo{width:88px!important;height:88px!important}.topbar-logo{width:46px!important;height:46px!important}.device-brand-logo{width:42px!important;height:42px!important}}
 </style>
 </head>
 <body class="auth-locked">
@@ -28,7 +32,8 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
     <div class="login-shell">
       <div class="login-brand">
         <a class="brand-mark" href="https://www.movidasst.com" target="_blank" rel="noopener" aria-label="La Movida SST+">
-          <span class="brand-plus">+</span><span>MOVIDA</span>
+          <img class="brand-logo login-brand-logo" src="assets/logo-movida-sst-plus.png" alt="Logo de La Movida de SST Plus" />
+          <span>LA MOVIDA SST+</span>
         </a>
         <p class="brand-kicker">LABORATORIO VIRTUAL DE HIGIENE OCUPACIONAL</p>
         <h1>Detector<br><strong>Multigás</strong></h1>
@@ -67,7 +72,7 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
   <div id="appShell" class="app-shell" hidden aria-hidden="true">
     <header class="topbar">
       <div class="topbar-brand">
-        <span class="brand-mark compact"><span class="brand-plus">+</span><span>MOVIDA</span></span>
+        <img class="brand-logo topbar-logo" src="assets/logo-movida-sst-plus.png" alt="La Movida SST+" />
         <div><b>Multigás virtual</b><small>MXG–4 PRO SIM</small></div>
       </div>
       <div class="topbar-center">
@@ -174,7 +179,7 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
               <div class="siren-grille"><span></span><span></span><span></span></div>
             </div>
             <div class="device-face">
-              <div class="device-id"><span>MOVIDA SST+</span><b>MXG–4</b><small>PRO SIM</small></div>
+              <div class="device-id"><img class="brand-logo device-brand-logo" src="assets/logo-movida-sst-plus.png" alt="" /><span>MOVIDA SST+</span><b>MXG–4</b><small>PRO SIM</small></div>
               <div id="lcd" class="lcd lcd-off">
                 <div class="lcd-topline">
                   <span id="lcdStatus">OFF</span>
@@ -284,7 +289,7 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
     <dialog id="tutorialDialog" class="tutorial-dialog" aria-labelledby="tutorialTitle">
       <form method="dialog">
         <button class="dialog-close" value="close" aria-label="Cerrar tutorial">×</button>
-        <div class="tutorial-brand"><i>+</i><span>LABORATORIO DIDÁCTICO · MULTIGÁS</span></div>
+        <div class="tutorial-brand"><img class="brand-logo tutorial-brand-logo" src="assets/logo-movida-sst-plus.png" alt="" /><span>LABORATORIO DIDÁCTICO · MULTIGÁS</span></div>
         <div class="tutorial-status"><span id="tutorialCounter" aria-live="polite">1 de 3</span><div aria-hidden="true"><i class="active"></i><i></i><i></i></div></div>
 
         <section class="tutorial-page" data-tutorial-step="0">
