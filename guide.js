@@ -9,8 +9,8 @@
     { key:'power', title:'Enciende el detector', text:'Toca POWER una vez. Observa la autoprueba de pantalla, alarmas y sensores antes de usar el equipo.', coach:'Toca POWER y espera que termine la autoprueba.', target:'#powerBtn' },
     { key:'fas', title:'Haz FAS en aire limpio', text:'Con el escenario Aire limpio, pulsa FAS. El ajuste en aire fresco sirve para establecer el cero; no sustituye el Bump Test ni la calibración.', coach:'Pulsa FAS solamente en una atmósfera que sepas que está limpia.', target:'#fasBtn' },
     { key:'bump', title:'Comprueba la respuesta con BUMP', text:'Pulsa BUMP. La prueba funcional confirma que los sensores responden y que las alarmas se activan. Un fallo obliga a revisar el equipo antes de usarlo.', coach:'Pulsa BUMP y espera el resultado PASS.', target:'#bumpBtn' },
-    { key:'tank', title:'Entra al escenario de tanque', text:'Selecciona Tanque con estratificación. En un espacio confinado una sola lectura puede ocultar una atmósfera peligrosa en otra altura.', coach:'En Ambiente elige Tanque con estratificación.', target:'#scenarioSelect' },
-    { key:'top', title:'Mide la zona superior', text:'Toca Superior y espera unos segundos para dejar responder al sensor antes de interpretar.', coach:'Toca Superior y mantén la sonda allí unos segundos.', target:'.position-buttons [data-position="top"]' },
+    { key:'tank', title:'Selecciona el escenario de tanque', text:'Selecciona Tanque con estratificación. En un espacio confinado una sola lectura puede ocultar una atmósfera peligrosa en otra altura.', coach:'En Ambiente elige Tanque con estratificación.', target:'#scenarioSelect' },
+    { key:'top', title:'Mide la zona superior', text:'Toca Superior y espera al menos 15 segundos didácticos en ese nivel. El paso se completa al cumplir la espera con BUMP válido y sin fallas.', coach:'Toca Superior y mantén la sonda allí unos segundos.', target:'.position-buttons [data-position="top"]' },
     { key:'middle', title:'Mide la zona media', text:'Toca Media. Compara O₂, %LEL, CO y el canal tóxico con la lectura superior.', coach:'Toca Media y espera la estabilización.', target:'.position-buttons [data-position="middle"]' },
     { key:'bottom', title:'Mide la zona inferior', text:'Toca Inferior. Compara los tres niveles: una atmósfera estratificada puede cambiar de forma importante con la altura.', coach:'Toca Inferior y espera la estabilización.', target:'.position-buttons [data-position="bottom"]' },
     { key:'pages', title:'Recorre PEAK, STEL y TWA', text:'Usa ▲ y ▼ para cambiar de pantalla. PEAK muestra máximos; STEL/EC resume 15 min y TWA/ED representa la exposición media de 8 h.', coach:'Usa ▲/▼ hasta visitar PEAK, STEL y TWA.', target:'#downBtn' },
@@ -20,7 +20,7 @@
   ];
 
   const controls = [
-    { target:'#powerBtn', title:'POWER', text:'Enciende o apaga el detector con un toque. Al encender ejecuta una autoprueba antes de quedar listo.' },
+    { target:'#powerBtn', title:'POWER', text:'Enciende o apaga el detector con un toque. Al encender ejecuta una autoprueba. Para omitir FAS usa el botón específico que aparece al finalizar.' },
     { target:'#upBtn', title:'▲ Pantalla anterior', text:'Cuando el equipo está listo, recorre hacia atrás las pantallas LIVE, PEAK, STEL y TWA.' },
     { target:'#downBtn', title:'▼ Pantalla siguiente', text:'Recorre hacia adelante LIVE, PEAK, STEL y TWA. Sirve para consultar indicadores sin cambiar la medición.' },
     { target:'#fasBtn', title:'FAS · Fresh Air Setup', text:'Ajusta el cero en aire fresco conocido. No es una prueba funcional y no debe hacerse en una atmósfera dudosa o contaminada.' },
@@ -33,8 +33,7 @@
   const pagesSeen = new Set();
   let guided = true;
   let lastIndex = -1;
-  let positionTimer = null;
-  let controlIndex = 0;
+    let controlIndex = 0;
   let tutorialIndex = 0;
   let simulatorOpenHandled = false;
 
@@ -128,79 +127,32 @@
     Object.keys(milestones).forEach(key => milestones[key] = false);
     pagesSeen.clear();
     lastIndex = -1;
-    clearTimeout(positionTimer);
     sync();
     locateCurrentStep();
   }
 
-  function validPowerState() {
-    const state = ($('globalState')?.textContent || '').toUpperCase();
-    return state && !state.includes('APAGADO') && !state.includes('AUTOPRUEBA');
-  }
-
-  function handleGuidedInteractions(event) {
-    const target = event.target.closest?.('button,select,input');
-    if (!target) return;
-
-    if (target.id === 'powerBtn') {
-      setTimeout(() => { if (validPowerState()) setMilestone('power'); }, 3600);
-      return;
+  // Milestones follow completed simulator actions, never delayed guesses from UI labels.
+  function handleAction(event) {
+    const d=event.detail;
+    if(d.action==='reset'){resetGuide();return;}
+    if(d.action==='power-off'){
+      for(const key of ['power','fas','bump']) milestones[key]=false;
+      sync();return;
     }
-
-    if (target.id === 'fasBtn') {
-      setTimeout(() => {
-        const scenario = $('scenarioSelect')?.value;
-        const state = ($('globalState')?.textContent || '').toUpperCase();
-        if (scenario === 'clean' && !state.includes('FAS PENDIENTE') && !state.includes('APAGADO') && !state.includes('AUTOPRUEBA')) setMilestone('fas');
-      }, 180);
-      return;
+    if(d.action==='power') setMilestone('power');
+    if(d.action==='fas'){setMilestone('fas',d.clean);setMilestone('bump',false);}
+    if(d.action==='bump' && milestones.fas) setMilestone('bump',d.passed);
+    if(d.action==='scenario'){
+      if(d.scenario==='tank'&&milestones.bump) setMilestone('tank');
+      if(d.scenario==='ph3'&&milestones.ph3) setMilestone('fumigation');
     }
-
-    if (target.id === 'bumpBtn') {
-      setTimeout(() => {
-        if (($('coachTitle')?.textContent || '').toUpperCase().includes('BUMP: PASS')) setMilestone('bump');
-      }, 3650);
-      return;
+    if(d.action==='sample'&&d.scenario==='tank'&&d.verified&&milestones.tank) setMilestone(d.position);
+    if(d.action==='page'){
+      if(['peak','stel','twa'].includes(d.page)) pagesSeen.add(d.page);
+      if(pagesSeen.size===3) setMilestone('pages');
     }
-
-    if (target.matches('.position-buttons button')) {
-      const position = target.dataset.position;
-      clearTimeout(positionTimer);
-      positionTimer = setTimeout(() => {
-        const scenario = $('scenarioSelect')?.value;
-        const selected = document.querySelector('.position-buttons button.active')?.dataset.position;
-        if (scenario === 'tank' && selected === position && ['top','middle','bottom'].includes(position)) setMilestone(position);
-      }, 1800);
-      return;
-    }
-
-    if (target.id === 'upBtn' || target.id === 'downBtn') {
-      setTimeout(() => {
-        const page = ($('lcdStatus')?.textContent || '').toUpperCase();
-        if (['PEAK','STEL','TWA'].includes(page)) pagesSeen.add(page);
-        if (['PEAK','STEL','TWA'].every(p => pagesSeen.has(p))) setMilestone('pages');
-      }, 80);
-      return;
-    }
-
-    if (target.matches('#profileSwitcher button[data-profile="ph3"]')) {
-      setTimeout(() => {
-        if (target.classList.contains('active')) setMilestone('ph3');
-      }, 80);
-      return;
-    }
-
-    if (target.id === 'saveSnapshotBtn') {
-      setTimeout(() => setMilestone('saved'), 80);
-    }
-  }
-
-  function handleChanges(event) {
-    const target = event.target;
-    if (target.id === 'scenarioSelect') {
-      if (target.value === 'tank') setMilestone('tank');
-      if (target.value === 'ph3') setMilestone('fumigation');
-    }
+    if(d.action==='profile'&&d.profile==='ph3') setMilestone('ph3');
+    if(d.action==='saved') setMilestone('saved');
   }
 
   function toggleGuided() {
@@ -269,7 +221,7 @@
   }
 
   function finishTutorial() {
-    localStorage.setItem(TUTORIAL_SEEN_KEY, '1');
+    try{localStorage.setItem(TUTORIAL_SEEN_KEY, '1');}catch{}
     $('tutorialDialog')?.close();
     guided = true;
     document.body.classList.add('guided-mode');
@@ -278,10 +230,11 @@
   }
 
   function filterManual() {
-    const query = ($('manualSearch')?.value || '').trim().toLowerCase();
+    const normalize=text=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const query = normalize(($('manualSearch')?.value || '').trim());
     let visible = 0;
     $$('.manual-topic').forEach(topic => {
-      const show = !query || topic.textContent.toLowerCase().includes(query);
+      const show = !query || normalize(topic.textContent).includes(query);
       topic.hidden = !show;
       if (show) visible += 1;
     });
@@ -301,13 +254,12 @@
     document.body.classList.toggle('guided-mode', guided);
     sync();
     setTimeout(() => {
-      if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) openTutorial();
+      try{if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) openTutorial();}catch{openTutorial();}
     }, 320);
   }
 
   function bind() {
-    document.addEventListener('click', handleGuidedInteractions, true);
-    document.addEventListener('change', handleChanges, true);
+    window.addEventListener('multigas:action',handleAction);
     $('guidedToggle')?.addEventListener('click', toggleGuided);
     $('locateStepBtn')?.addEventListener('click', locateCurrentStep);
     $('guideCoachLocate')?.addEventListener('click', locateCurrentStep);
@@ -324,7 +276,7 @@
     $('tutorialNextBtn')?.addEventListener('click', event => { event.preventDefault(); tutorialIndex = Math.min(2, tutorialIndex + 1); renderTutorial(); });
     $('tutorialStartBtn')?.addEventListener('click', event => { event.preventDefault(); finishTutorial(); });
     window.addEventListener('movida:simulator-open', () => { simulatorOpenHandled = false; onSimulatorOpen(); });
-    $('newRunBtn')?.addEventListener('click', () => setTimeout(resetGuide, 30));
+
   }
 
   function init() {

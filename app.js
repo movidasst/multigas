@@ -2,6 +2,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  let memoryLog=[];
   const STORAGE_KEY = 'movida-sst-multigas-log-v1';
   const SETTINGS_KEY = 'movida-sst-multigas-settings-v1';
   const TICK_MS = 500;
@@ -26,10 +27,15 @@
   const state = {
     power:false, booting:false, ready:false, fasDone:false, bumpPassed:false, page:'live', profile:'standard', scenario:'clean', position:'middle', fault:'none', muted:false,
     readings:{o2:20.8,lel:0,co:0,h2s:0,ph3:0}, displayReadings:{o2:20.8,lel:0,co:0,h2s:0,ph3:0}, baselines:{o2:20.8,lel:0,co:0,h2s:0,ph3:0},
-    peaks:{co:0,h2s:0,ph3:0,lel:0}, o2Min:20.8, simMinutes:0, history:[], alarmLatch:false, bumping:false, exposureStarted:false, lastTs:performance.now(), bootToken:0,
+    peaks:{co:0,h2s:0,ph3:0,lel:0}, o2Min:20.8, simMinutes:0, history:[], alarmLatch:false, bumping:false, exposureStarted:false, sampleSeconds:0, fasContaminated:false, exposureArea:{co:0,h2s:0,ph3:0}, lastTs:performance.now(), bootToken:0,
     alarms: JSON.parse(JSON.stringify({ o2:{low:19.5,high:23}, lel:{low:10,high:20}, co:{low:25,high:100,stel:100,twa:25}, h2s:{low:10,high:15,stel:15,twa:10}, ph3:{low:.10,high:.20,stel:.20,twa:.10} }))
   };
 
+  const emit = (action, detail = {}) => window.dispatchEvent(new CustomEvent('multigas:action', {detail:{action,...detail}}));
+  const positionLabel = () => ({top:'superior',middle:'media',bottom:'inferior'}[state.position]);
+  const analysisGas = () => $('exposureGas')?.value === 'co' ? 'co' : toxicGas();
+  const setText=(id,value)=>{if($(id).textContent!==value)$(id).textContent=value;};
+  const sampleWait = () => state.fault === 'blocked' ? 45 : 15;
   let intervalId = null, audioCtx = null, lastBeepAt = 0;
   const fmt = (gas, n) => Number.isFinite(n) ? n.toFixed(defs[gas].decimals) : '--';
   const toxicGas = () => state.profile === 'ph3' ? 'ph3' : 'h2s';
@@ -78,30 +84,22 @@
     const factor = $('acceleratedTime')?.checked ? SIM_ACCEL : 1;
     const dtMin = dtSec * factor / 60;
     state.simMinutes += dtMin;
-    state.history.push({ minute:state.simMinutes, co:state.readings.co, h2s:state.readings.h2s, ph3:state.readings.ph3 });
-    const cutoff = state.simMinutes - 480;
-    if (state.history.length > 5000) state.history = state.history.filter(x => x.minute >= cutoff);
-    state.peaks.co = Math.max(state.peaks.co,state.readings.co); state.peaks.h2s=Math.max(state.peaks.h2s,state.readings.h2s); state.peaks.ph3=Math.max(state.peaks.ph3,state.readings.ph3); state.peaks.lel=Math.max(state.peaks.lel,state.readings.lel);
+    const sample={start:state.simMinutes-dtMin,end:state.simMinutes,co:state.readings.co,h2s:0,ph3:0};sample[toxicGas()]=state.readings[toxicGas()];
+    state.history.push(sample);
+    for(const gas of ['co',toxicGas()]) state.exposureArea[gas] += sample[gas]*dtMin;
+    while(state.history.length && state.history[0].end <= state.simMinutes-15) state.history.shift();
+    state.sampleSeconds += dtSec;
+    if(state.sampleSeconds >= sampleWait()) emit('sample', {scenario:state.scenario,position:state.position,verified:state.bumpPassed&&!state.fasContaminated&&state.fault==='none'});
+    state.peaks.co = Math.max(state.peaks.co,state.readings.co); state.peaks[toxicGas()]=Math.max(state.peaks[toxicGas()],state.readings[toxicGas()]); state.peaks.lel=Math.max(state.peaks.lel,state.readings.lel);
     state.o2Min = Math.min(state.o2Min,state.readings.o2);
     state.exposureStarted = true;
   }
 
   function rollingAverage(gas, windowMin){
-    if (!state.history.length) return 0;
     const start = Math.max(0,state.simMinutes-windowMin);
-    const rows = state.history.filter(x=>x.minute>=start);
-    if (!rows.length) return 0;
-    let area=0, prevMin=start, prevVal=rows[0][gas]||0;
-    for(const row of rows){ const dt=Math.max(0,row.minute-prevMin); area += prevVal*dt; prevMin=row.minute; prevVal=row[gas]||0; }
-    area += prevVal*Math.max(0,state.simMinutes-prevMin);
-    return area/windowMin;
+    return state.history.reduce((area,row) => area + row[gas]*Math.max(0,Math.min(row.end,state.simMinutes)-Math.max(row.start,start)),0)/windowMin;
   }
-  function twa8(gas){
-    if (!state.history.length) return 0;
-    let area=0;
-    for(let i=1;i<state.history.length;i++){ const a=state.history[i-1],b=state.history[i]; area += ((a[gas]+b[gas])/2)*(b.minute-a.minute); }
-    return area/480;
-  }
+  function twa8(gas){ return state.exposureArea[gas]/480; }
 
   function alarmFor(gas, value){
     const a = state.alarms[gas]; if(!a) return {level:'none',label:''};
@@ -125,9 +123,10 @@
   }
 
   function beep(level){
-    if(state.muted||level==='none'||Date.now()-lastBeepAt<900) return; lastBeepAt=Date.now();
+    if(state.muted||document.body.classList.contains('auth-locked')||level==='none'||Date.now()-lastBeepAt<900) return; lastBeepAt=Date.now();
     try{
       audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
       const osc=audioCtx.createOscillator(),gain=audioCtx.createGain(); osc.type='square'; osc.frequency.value=level==='high'?1380:880; gain.gain.value=.025; osc.connect(gain);gain.connect(audioCtx.destination);osc.start();gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.16);osc.stop(audioCtx.currentTime+.17);
       navigator.vibrate?.(level==='high'?[160,80,160]:[100]);
     }catch{}
@@ -140,25 +139,30 @@
 
   function renderLCD(){
     const lcd=$('lcd');
-    if(!state.power){ lcd.classList.add('lcd-off'); setLcdMessage('OFF','POWER','Mantén ● para encender'); return; }
+    if(!state.power){ lcd.classList.add('lcd-off'); setLcdMessage('OFF','POWER','Toca ● para encender'); return; }
     lcd.classList.remove('lcd-off');
     if(state.booting) return;
     if(state.bumping){ setLcdMessage('BUMP','GAS TEST','Verificando respuesta de sensores…'); return; }
     if(!state.ready){ setLcdMessage('READY?','FAS','Realiza o confirma ajuste en aire fresco'); return; }
     showLive(); $('lcdStatus').textContent=state.page==='live'?'LIVE':state.page.toUpperCase();
     const tg=toxicGas(); $('toxicName').textContent=defs[tg].label;
-    $('valO2').textContent=fmt('o2',state.readings.o2); $('valLEL').textContent=fmt('lel',state.readings.lel); $('valCO').textContent=fmt('co',state.readings.co); $('valToxic').textContent=fmt(tg,state.readings[tg]);
+    const displayValue = gas => {
+      if(state.page==='peak') return gas==='o2'?state.o2Min:state.peaks[gas];
+      if(state.page==='stel'||state.page==='twa') return ['co','h2s','ph3'].includes(gas)?(state.page==='stel'?rollingAverage(gas,15):twa8(gas)):NaN;
+      return state.readings[gas];
+    };
+    for(const [id,gas] of [['valO2','o2'],['valLEL','lel'],['valCO','co'],['valToxic',tg]]) $(id).textContent=fmt(gas,displayValue(gas));
     for(const [cellGas,gas] of [['o2','o2'],['lel','lel'],['co','co'],['toxic',tg]]){
-      const cell=document.querySelector(`.gas-cell[data-gas="${cellGas}"]`), em=cell.querySelector('em'), a=alarmFor(gas,state.readings[gas]); cell.classList.toggle('warn',a.level==='low'); cell.classList.toggle('danger',a.level==='high'); em.textContent=a.label;
+      const cell=document.querySelector(`.gas-cell[data-gas="${cellGas}"]`), em=cell.querySelector('em'), a=alarmFor(gas,state.readings[gas]); cell.classList.toggle('warn',a.level==='low'); cell.classList.toggle('danger',a.level==='high'); em.textContent=a.label ? `${a.label} · ACTUAL` : '';
     }
-    if(state.page==='peak') $('lcdFooter').textContent=`PEAK ${defs[tg].label}: ${fmt(tg,state.peaks[tg])} ${defs[tg].unit}`;
-    else if(state.page==='stel') $('lcdFooter').textContent=`STEL/EC 15 min ${defs[tg].label}: ${fmt(tg,rollingAverage(tg,15))}`;
-    else if(state.page==='twa') $('lcdFooter').textContent=`TWA/ED 8 h ${defs[tg].label}: ${fmt(tg,twa8(tg))}`;
-    else $('lcdFooter').textContent=`${scenarios[state.scenario].label} · ${state.position.toUpperCase()}`;
+    const footers={peak:'Máximos de gases · mínimo de O₂',stel:'Media 15 min · solo canales tóxicos',twa:'Acumulado / 8 h · solo tóxicos'};
+    $('lcdFooter').textContent=footers[state.page]||`${scenarios[state.scenario].label} · zona ${positionLabel()}`;
   }
 
   function renderExposure(){
-    const tg=toxicGas(), st=rollingAverage(tg,15), tw=twa8(tg);
+    const tg=analysisGas(), st=rollingAverage(tg,15), tw=twa8(tg);
+    $('exposureGas').options[0].textContent=defs[toxicGas()].label+' · canal instalado';
+    $('exposureExplanation').textContent=state.simMinutes<15?'STEL parcial: aún no se completan 15 minutos simulados. TWA: exposición acumulada dividida entre 8 h.':'STEL: últimos 15 min simulados. TWA: exposición acumulada desde el inicio, dividida entre 8 h.';
     $('stelValue').textContent=fmt(tg,st); $('stelGas').textContent=`${defs[tg].unit} · ${defs[tg].label}`;
     $('twaValue').textContent=fmt(tg,tw); $('twaGas').textContent=`${defs[tg].unit} · ${defs[tg].label}`;
     $('peakValue').textContent=fmt(tg,state.peaks[tg]); $('peakGas').textContent=`${defs[tg].unit} · ${defs[tg].label}`; $('o2MinValue').textContent=fmt('o2',state.o2Min);
@@ -182,7 +186,7 @@
       </div></div>`;
     }).join('');
     $$('#alarmEditor input').forEach(input=>input.addEventListener('change',()=>{
-      const row=input.closest('[data-edit-gas]'),g=row.dataset.editGas,k=input.dataset.k,v=Number(input.value); if(!Number.isFinite(v))return;
+      const row=input.closest('[data-edit-gas]'),g=row.dataset.editGas,k=input.dataset.k,v=Number(input.value); if(!input.value.trim()||!Number.isFinite(v)||v<0||v>defs[g].range[1]||((k==='stel'||k==='twa')&&v===0)){input.value=state.alarms[g][k];coach('Valor fuera de rango',`Introduce un valor válido entre 0 y ${defs[g].range[1]} ${defs[g].unit}; STEL y TWA deben ser mayores que cero.`);return;}
       if(k==='high'&&v<=state.alarms[g].low){input.value=state.alarms[g].high; coach('Configuración no válida','HIGH debe ser mayor que LOW.');return;}
       if(k==='low'&&v>=state.alarms[g].high){input.value=state.alarms[g].low; coach('Configuración no válida','LOW debe ser menor que HIGH.');return;}
       state.alarms[g][k]=v; saveSettings();
@@ -191,8 +195,8 @@
 
   function renderScenario(){
     $('probeMarker').style.top=state.position==='top'?'19%':state.position==='bottom'?'80%':'50%';
-    $$('.position-buttons button').forEach(b=>b.classList.toggle('active',b.dataset.position===state.position));
-    $$('#profileSwitcher button').forEach(b=>b.classList.toggle('active',b.dataset.profile===state.profile));
+    $$('.position-buttons button').forEach(b=>{b.classList.toggle('active',b.dataset.position===state.position);b.setAttribute('aria-pressed',String(b.dataset.position===state.position));});
+    $$('#profileSwitcher button').forEach(b=>{b.classList.toggle('active',b.dataset.profile===state.profile);b.setAttribute('aria-pressed',String(b.dataset.profile===state.profile));});
   }
 
   function renderQuality(){
@@ -200,94 +204,153 @@
     if(state.fault==='blocked'){q.classList.add('bad');title='Entrada de sensor bloqueada: lectura potencialmente incorrecta';}
     else if(state.fault==='poisoned'){q.classList.add('bad');title='Sensor LEL afectado: posible sublectura';}
     else if(state.fault==='airflow'){q.classList.add('warn');title='Velocidad de aire alta: lectura potencialmente inestable';}
-    else if(!state.bumpPassed){q.classList.add('warn');title='Prueba funcional pendiente';} else q.classList.add('good'); q.title=title;
+    else if(state.fasContaminated){q.classList.add('bad');title='FAS en aire contaminado: lecturas sesgadas';}
+    else if(!state.bumpPassed){q.classList.add('warn');title='Prueba funcional pendiente';} else q.classList.add('good'); q.title=title;$('qualityText').textContent=title;
   }
 
   function renderGlobal(){
     const level=overallAlarm(), pill=$('globalState'),device=$('device');
     pill.className='state-pill';device.classList.remove('alarm-low','alarm-high','bumping');
     if(!state.power){pill.classList.add('state-off');pill.textContent='EQUIPO APAGADO';}
-    else if(state.bumping){pill.classList.add('safe');pill.textContent='BUMP TEST';device.classList.add('bumping');}
+    else if(state.bumping){beep('high');pill.classList.add('safe');pill.textContent='BUMP TEST';device.classList.add('bumping');}
     else if(!state.ready){pill.classList.add('state-off');pill.textContent=state.booting?'AUTOPRUEBA':'FAS PENDIENTE';}
     else if(level==='high'){pill.classList.add('high');pill.textContent='ALARMA HIGH';device.classList.add('alarm-high');state.alarmLatch=true;beep('high');}
     else if(level==='low'){pill.classList.add('low');pill.textContent='ALARMA LOW';device.classList.add('alarm-low');beep('low');}
     else {pill.classList.add('safe');pill.textContent='MONITOREANDO';}
     $('soundIcon').textContent=state.muted?'×':'♪'; $('muteLabel').textContent=state.muted?'Silenciado':'Activo'; $('muteBtn').classList.toggle('active',state.muted); $('muteBtn').setAttribute('aria-pressed',String(state.muted));
+    $('powerBtn').setAttribute('aria-label',state.power?'Apagar detector':'Encender detector');
+    $('fasBtn').disabled=!state.power||state.booting||state.bumping;
+    $('bumpBtn').disabled=!state.ready||state.bumping;
+    $('upBtn').disabled=$('downBtn').disabled=!state.ready||state.bumping;
+    $('saveSnapshotBtn').disabled=!state.ready||state.bumping;
+    $('skipFasBtn').hidden=!state.power||state.booting||state.ready;
+    $('scenarioSelect').disabled=$('faultSelect').disabled=state.bumping;
+    $$('#profileSwitcher button').forEach(b=>b.disabled=state.bumping);
+    renderOperation(level);
+  }
+
+  function renderOperation(level){
+    let message='Toca POWER para comenzar.', tone='';
+    if(state.booting) message='Autoprueba en curso: espera la comprobación de sensores.';
+    else if(state.bumping) message='BUMP en curso: respuesta a gas de prueba y señales de alarma simuladas.';
+    else if(state.power&&!state.ready) message='¿Estás en aire limpio? Realiza FAS o usa la opción para omitirlo.';
+    else if(state.ready){
+      if(level!=='none'){message='Alarma activa. Reconocerla o silenciarla no elimina el peligro.';tone='danger';}
+      else if(state.fasContaminated){message='FAS contaminado: las lecturas tienen sesgo. Repite en aire limpio.';tone='danger';}
+      else if(!state.bumpPassed){message='Prueba funcional pendiente o fallida. Realiza BUMP y comprueba el resultado.';tone='warning';}
+      else if(state.fault!=='none'){message='Falla didáctica activa: interpreta las lecturas con precaución.';tone='warning';}
+      else if(state.sampleSeconds<sampleWait()) message=`Sensor respondiendo · espera ${Math.ceil(sampleWait()-state.sampleSeconds)} s didácticos en esta zona.`;
+      else message='Tiempo didáctico de respuesta cumplido. Compara los canales; sin alarma no significa autorización de ingreso.';
+    }
+    const box=$('operationFeedback');
+    if(box.textContent!==message) box.textContent=message;
+    box.className=`operation-feedback ${tone}`;
   }
 
   function renderMission(){
-    let title='Enciende el equipo',text='Mantén POWER para iniciar la autoprueba del detector.';
+    let title='Enciende el equipo',text='Toca POWER para iniciar la autoprueba del detector.';
     if(state.power&&state.booting){title='Observa la autoprueba';text='El detector verifica pantalla, luces, alarma y sensores antes de medir.';}
     else if(state.power&&!state.ready){title='Decide sobre FAS';text='Haz el ajuste solo si tienes certeza de estar en aire fresco.';}
     else if(state.ready&&!state.bumpPassed){title='Realiza la prueba funcional';text='Comprueba que los sensores respondan y que las alarmas sean perceptibles.';}
     else if(state.ready&&state.bumpPassed){title='Monitorea la atmósfera';text=state.scenario==='tank'?'Compara los tres niveles del espacio: superior, medio e inferior.':scenarios[state.scenario].note;}
-    $('missionTitle').textContent=title;$('missionText').textContent=text;
+    setText('missionTitle',title);setText('missionText',text);
   }
 
   function render(){ renderLCD();renderExposure();renderGlobal();renderQuality();renderMission(); }
 
   function coach(title,text){$('coachTitle').textContent=title;$('coachText').textContent=text;}
   function addLog(title,body){
-    const logs=loadLog(); logs.unshift({time:new Date().toISOString(),title,body}); if(logs.length>40)logs.length=40; localStorage.setItem(STORAGE_KEY,JSON.stringify(logs)); renderLog();
+    const logs=loadLog(); logs.unshift({time:new Date().toISOString(),title,body}); if(logs.length>40)logs.length=40;memoryLog=logs;
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(logs));}catch{}
+    renderLog();
   }
-  function loadLog(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return[]}}
-  function renderLog(){const logs=loadLog(),el=$('eventLog'); if(!logs.length){el.innerHTML='<p class="empty-log">Aún no hay registros.</p>';return;} el.innerHTML=logs.map(x=>`<div class="log-entry"><b>${x.title}</b><span>${new Date(x.time).toLocaleString('es')} · ${x.body}</span></div>`).join('');}
+  function loadLog(){try{const logs=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');return Array.isArray(logs)?logs.filter(x=>x&&typeof x.title==='string'&&typeof x.body==='string'):memoryLog;}catch{return memoryLog;}}
+  function renderLog(){
+    const logs=loadLog(),el=$('eventLog');el.replaceChildren();
+    if(!logs.length){const empty=document.createElement('p');empty.className='empty-log';empty.textContent='Aún no hay registros.';el.append(empty);return;}
+    logs.forEach(x=>{const row=document.createElement('div'),title=document.createElement('b'),body=document.createElement('span');row.className='log-entry';title.textContent=x.title;body.textContent=`${new Date(x.time).toLocaleString('es')} · ${x.body}`;row.append(title,body);el.append(row);});
+  }
   function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify({alarms:state.alarms,profile:state.profile}))}catch{}}
-  function loadSettings(){try{const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'null');if(s?.alarms)state.alarms={...state.alarms,...s.alarms};if(s?.profile)state.profile=s.profile}catch{}}
+  function loadSettings(){
+    try{
+      const saved=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'null');
+      if(['standard','ph3'].includes(saved?.profile))state.profile=saved.profile;
+      for(const gas of Object.keys(state.alarms)){
+        const candidate=saved?.alarms?.[gas];if(!candidate)continue;
+        const merged={...state.alarms[gas],...candidate};
+        if(Object.keys(state.alarms[gas]).every(key=>Number.isFinite(merged[key])&&merged[key]>=0&&merged[key]<=defs[gas].range[1]&&(!['stel','twa'].includes(key)||merged[key]>0))&&merged.low<merged.high)state.alarms[gas]=merged;
+      }
+    }catch{}
+  }
+
 
   async function powerOn(){
-    if(state.power||state.booting)return;state.power=true;state.booting=true;state.ready=false;state.fasDone=false;state.bumpPassed=false;state.alarmLatch=false;state.bootToken++;const token=state.bootToken;renderGlobal();
+    if(state.power||state.booting)return;state.power=true;state.booting=true;$('lcd').classList.remove('lcd-off');state.ready=false;state.fasDone=false;state.bumpPassed=false;state.alarmLatch=false;state.bootToken++;const token=state.bootToken;render();
     const steps=[['TEST','8888','Pantalla · LEDs · vibración'],['SENS','O₂ LEL CO TOX','Reconociendo sensores'],['ALARM','LOW / HIGH','Verificando setpoints'],['CAL','CHECK','Estado de calibración'],['FAS?','AIR','Confirma aire fresco']];
-    for(const [st,msg,foot] of steps){if(token!==state.bootToken)return;setLcdMessage(st,msg,foot);await new Promise(r=>setTimeout(r,650));}
-    if(token!==state.bootToken)return;state.booting=false;render();coach('Fresh Air Setup','Haz FAS solamente en una atmósfera que sepas que está limpia. También puedes omitirlo y continuar.');
+    for(const [st,msg,foot] of steps){if(token!==state.bootToken)return;setLcdMessage(st,msg,foot);if(st==='TEST')beep('high');await new Promise(r=>setTimeout(r,650));}
+    if(token!==state.bootToken)return;state.booting=false;render();emit('power');coach('Fresh Air Setup','Haz FAS solamente en una atmósfera que sepas que está limpia. También puedes omitirlo y continuar.');
   }
-  function powerOff(){state.bootToken++;state.power=false;state.booting=false;state.ready=false;state.bumping=false;state.alarmLatch=false;render();coach('Equipo apagado','Mantén POWER para iniciar una nueva práctica.');}
+  function powerOff(){state.bootToken++;emit('power-off');state.power=false;state.booting=false;state.ready=false;state.bumping=false;state.alarmLatch=false;render();coach('Equipo apagado','Toca POWER para iniciar una nueva práctica.');}
   function doFAS(){
-    if(!state.power||state.booting){coach('FAS no disponible','Primero enciende y espera la autoprueba.');return;}
+    if(!state.power||state.booting||state.bumping){coach('FAS no disponible','Primero enciende y espera la autoprueba.');return;}
     const actual=scenarios[state.scenario].values[state.position]; state.baselines={...actual};state.fasDone=true;state.ready=true;state.readings={o2:20.8,lel:0,co:0,h2s:0,ph3:0};
     const contaminated=state.scenario!=='clean'||Object.entries(actual).some(([g,v])=>g!=='o2'&&v>.001)||Math.abs(actual.o2-20.8)>.2;
+    state.fasContaminated=contaminated;state.sampleSeconds=0;state.bumpPassed=false;emit('fas',{clean:!contaminated});
     if(contaminated){coach('FAS realizado en atmósfera no limpia','Acabas de introducir un sesgo: el detector puede subestimar contaminantes. Reinicia y repite FAS en aire limpio para corregirlo.');addLog('FAS cuestionable',`${scenarios[state.scenario].label} · ${state.position}`);}else{coach('FAS completado','El cero quedó referenciado a aire limpio. Ahora realiza una prueba funcional.');addLog('FAS completado','Aire limpio');}
     render();
   }
   async function doBump(){
     if(!state.power||!state.ready||state.bumping){coach('BUMP no disponible','Completa encendido y FAS antes de la prueba funcional.');return;}
-    state.bumping=true;render();await new Promise(r=>setTimeout(r,3400));
-    const fail=state.fault==='blocked'||state.fault==='poisoned';state.bumping=false;state.bumpPassed=!fail;
+    state.bumping=true;state.bumpPassed=false;state.sampleSeconds=0;const token=++state.bootToken;render();await new Promise(r=>setTimeout(r,3400));
+    if(token!==state.bootToken||!state.power)return;
+    const fail=state.fault==='blocked'||state.fault==='poisoned';state.bumping=false;state.bumpPassed=!fail;state.readings={...state.baselines};emit('bump',{passed:!fail});
     if(fail){coach('BUMP: ERROR',state.fault==='blocked'?'La respuesta fue insuficiente. Revisa obstrucción y no uses el equipo hasta corregir/verificar.':'El canal LEL no respondió correctamente. Requiere revisión/calibración antes del uso.');addLog('BUMP ERROR',state.fault);}else{coach('BUMP: PASS','Todos los canales respondieron y las alarmas fueron activadas en la simulación.');addLog('BUMP PASS',state.profile==='ph3'?'O₂/LEL/CO/PH₃':'O₂/LEL/CO/H₂S');}
     render();
   }
+  function resetExposure(){
+    state.simMinutes=0;state.history=[];state.exposureArea={co:0,h2s:0,ph3:0};state.peaks={co:0,h2s:0,ph3:0,lel:0};state.o2Min=state.readings.o2;state.sampleSeconds=0;state.alarmLatch=false;state.page='live';
+  }
   function resetAlarm(){state.alarmLatch=false;coach('Alarma reconocida','RESET reconoce la alarma enclavada, pero no elimina el peligro. Si la concentración sigue alta, volverá a activarse.');render();}
   function resetRun(){
+    state.bootToken++;state.booting=false;state.bumping=false;state.sampleSeconds=0;state.exposureStarted=false;state.fasContaminated=false;state.exposureArea={co:0,h2s:0,ph3:0};state.page='live';state.scenario='clean';state.position='middle';state.fault='none';$('scenarioSelect').value='clean';$('faultSelect').value='none';renderScenario();emit('reset');
     state.simMinutes=0;state.history=[];state.peaks={co:0,h2s:0,ph3:0,lel:0};state.o2Min=20.8;state.baselines={o2:20.8,lel:0,co:0,h2s:0,ph3:0};state.readings={o2:20.8,lel:0,co:0,h2s:0,ph3:0};state.fasDone=false;state.bumpPassed=false;state.ready=false;state.alarmLatch=false;
-    if(state.power&&!state.booting){coach('Nueva práctica','Repite FAS en aire limpio antes de continuar.');}render();
+    if(state.power&&!state.booting){emit('power');coach('Nueva práctica','Repite FAS en aire limpio antes de continuar.');}render();
   }
   function restoreAlarms(){state.alarms={o2:{low:19.5,high:23},lel:{low:10,high:20},co:{low:25,high:100,stel:100,twa:25},h2s:{low:10,high:15,stel:15,twa:10},ph3:{low:.10,high:.20,stel:.20,twa:.10}};saveSettings();renderAlarmEditor();coach('Setpoints restaurados','Son valores iniciales de práctica y pueden modificarse. No equivalen automáticamente a límites ocupacionales.');}
 
   function tick(){
     const now=performance.now(),dt=Math.min(1.5,(now-state.lastTs)/1000);state.lastTs=now;
+    if(document.body.classList.contains('auth-locked')||document.hidden)return;
     if(state.power&&!state.booting){for(const g of Object.keys(defs))sensorStep(g,dt);exposureUpdate(dt);}render();
   }
 
   function bind(){
-    let pressTimer=null;
-    const startPress=()=>{clearTimeout(pressTimer);pressTimer=setTimeout(()=>state.power?powerOff():powerOn(),520)};const endPress=()=>clearTimeout(pressTimer);
-    $('powerBtn').addEventListener('pointerdown',startPress);$('powerBtn').addEventListener('pointerup',endPress);$('powerBtn').addEventListener('pointerleave',endPress);$('powerBtn').addEventListener('click',()=>{if(state.power&&!state.booting&&!state.ready){state.ready=true;coach('FAS omitido','El equipo continúa sin FAS. Documenta por qué y asegúrate de que el cero sea válido.');render();}});
+    $('powerBtn').addEventListener('click',()=>{state.power?powerOff():powerOn();});
+    $('skipFasBtn').addEventListener('click',()=>{if(!state.power||state.booting||state.ready)return;state.ready=true;state.sampleSeconds=0;coach('FAS omitido','Continúas sin ajuste de cero. La guía requiere practicar FAS en aire limpio.');render();});
+    $('exposureGas').addEventListener('change',renderExposure);
     const pages=['live','peak','stel','twa'];
-    $('upBtn').addEventListener('click',()=>{if(!state.ready)return;let i=pages.indexOf(state.page);state.page=pages[(i-1+pages.length)%pages.length];renderLCD();});
-    $('downBtn').addEventListener('click',()=>{if(!state.ready)return;let i=pages.indexOf(state.page);state.page=pages[(i+1)%pages.length];renderLCD();});
+    $('upBtn').addEventListener('click',()=>{if(!state.ready)return;let i=pages.indexOf(state.page);state.page=pages[(i-1+pages.length)%pages.length];renderLCD();emit('page',{page:state.page});});
+    $('downBtn').addEventListener('click',()=>{if(!state.ready)return;let i=pages.indexOf(state.page);state.page=pages[(i+1)%pages.length];renderLCD();emit('page',{page:state.page});});
     $('fasBtn').addEventListener('click',doFAS);$('bumpBtn').addEventListener('click',doBump);$('resetAlarmBtn').addEventListener('click',resetAlarm);$('newRunBtn').addEventListener('click',resetRun);
     $('muteBtn').addEventListener('click',()=>{state.muted=!state.muted;renderGlobal();});
-    $('scenarioSelect').addEventListener('change',e=>{state.scenario=e.target.value;if(state.scenario==='ph3'&&state.profile!=='ph3'){state.profile='ph3';renderAlarmEditor();renderReference();}renderScenario();coach('Escenario cambiado',scenarios[state.scenario].note);});
-    $$('.position-buttons button').forEach(b=>b.addEventListener('click',()=>{state.position=b.dataset.position;renderScenario();coach('Punto de medición',`Ahora estás midiendo en el nivel ${b.textContent.toLowerCase()}. Espera la respuesta del sensor antes de interpretar.`);}));
-    $$('#profileSwitcher button').forEach(b=>b.addEventListener('click',()=>{state.profile=b.dataset.profile;renderScenario();renderAlarmEditor();renderReference();saveSettings();coach('Configuración de sensores',state.profile==='ph3'?'Canal tóxico configurado como PH₃.':'Canal tóxico configurado como H₂S.');}));
-    $('faultSelect').addEventListener('change',e=>{state.fault=e.target.value;renderQuality();const msgs={none:'Condición normal restablecida.',blocked:'Una entrada parcialmente bloqueada ralentiza y reduce la respuesta.',poisoned:'El canal LEL puede subleer pese a una atmósfera combustible.',airflow:'Velocidades de aire altas pueden alterar la lectura.'};coach('Condición didáctica',msgs[state.fault]);});
-    $$('.tabs button').forEach(btn=>btn.addEventListener('click',()=>{$$('.tabs button').forEach(x=>x.classList.toggle('active',x===btn));$$('.tab-panel').forEach(p=>p.classList.toggle('active',p.dataset.panel===btn.dataset.tab));}));
+    $('scenarioSelect').addEventListener('change',e=>{state.scenario=e.target.value;state.sampleSeconds=0;if(state.scenario==='ph3'&&state.profile!=='ph3'){state.profile='ph3';resetExposure();state.bumpPassed=false;emit('profile',{profile:'ph3'});renderAlarmEditor();renderReference();}emit('scenario',{scenario:state.scenario});renderScenario();coach('Escenario cambiado',scenarios[state.scenario].note);});
+    $$('.position-buttons button').forEach(b=>b.addEventListener('click',()=>{state.position=b.dataset.position;state.sampleSeconds=0;renderScenario();coach('Punto de medición',`Ahora estás midiendo en el nivel ${b.textContent.toLowerCase()}. Espera la respuesta del sensor antes de interpretar.`);}));
+    $$('#profileSwitcher button').forEach(b=>b.addEventListener('click',()=>{if(state.profile===b.dataset.profile)return;state.profile=b.dataset.profile;resetExposure();state.bumpPassed=false;state.sampleSeconds=0;emit('profile',{profile:state.profile});renderScenario();renderAlarmEditor();renderReference();saveSettings();coach('Configuración de sensores',state.profile==='ph3'?'Canal PH₃ instalado. Se reinició la exposición. Repite BUMP.':'Canal H₂S instalado. Se reinició la exposición. Repite BUMP.');}));
+    $('faultSelect').addEventListener('change',e=>{state.fault=e.target.value;state.bumpPassed=false;state.sampleSeconds=0;renderQuality();const msgs={none:'Condición normal restablecida.',blocked:'Una entrada parcialmente bloqueada ralentiza y reduce la respuesta.',poisoned:'El canal LEL puede subleer pese a una atmósfera combustible.',airflow:'Velocidades de aire altas pueden alterar la lectura.'};coach('Condición didáctica',msgs[state.fault]);});
+    const tabs=$$('.tabs button');
+    tabs.forEach((btn,index)=>{
+      btn.id=`tab-${btn.dataset.tab}`;btn.setAttribute('role','tab');btn.setAttribute('aria-controls',`panel-${btn.dataset.tab}`);
+      const select=()=>{tabs.forEach(x=>{const active=x===btn;x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active));x.tabIndex=active?0:-1;});$$('.tab-panel').forEach(p=>{p.classList.toggle('active',p.dataset.panel===btn.dataset.tab);});};
+      btn.addEventListener('click',select);
+      btn.addEventListener('keydown',event=>{let i=index;if(event.key==='ArrowRight')i=(index+1)%tabs.length;else if(event.key==='ArrowLeft')i=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')i=0;else if(event.key==='End')i=tabs.length-1;else return;event.preventDefault();tabs[i].click();tabs[i].focus();});
+    });
+    $$('.tab-panel').forEach(p=>{p.id=`panel-${p.dataset.panel}`;p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby',`tab-${p.dataset.panel}`);});tabs[0].click();
     $('restoreAlarmsBtn').addEventListener('click',restoreAlarms);$('latchHigh').addEventListener('change',()=>renderGlobal());
-    $('saveSnapshotBtn').addEventListener('click',()=>{const tg=toxicGas();addLog('Lectura guardada',`O₂ ${fmt('o2',state.readings.o2)} % · LEL ${fmt('lel',state.readings.lel)} % · CO ${fmt('co',state.readings.co)} ppm · ${defs[tg].label} ${fmt(tg,state.readings[tg])} ppm`);coach('Lectura guardada','Se añadió una instantánea al registro local de esta práctica.');});
-    $('clearLogBtn').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);renderLog();});
+    $('saveSnapshotBtn').addEventListener('click',()=>{if(!state.ready||state.bumping)return;const tg=toxicGas();addLog('Lectura guardada',`${scenarios[state.scenario].label} · zona ${positionLabel()} · ${state.simMinutes.toFixed(1)} min simulados · BUMP ${state.bumpPassed?'PASS':'pendiente/fallido'} · falla ${state.fault} · O₂ ${fmt('o2',state.readings.o2)} % · LEL ${fmt('lel',state.readings.lel)} % · CO ${fmt('co',state.readings.co)} ppm · ${defs[tg].label} ${fmt(tg,state.readings[tg])} ppm`);coach('Lectura guardada','Se añadió una instantánea con escenario, altura, tiempo y estado de verificación.');emit('saved');});
+    $('clearLogBtn').addEventListener('click',()=>{memoryLog=[];try{localStorage.removeItem(STORAGE_KEY);}catch{}renderLog();});
     $('drawerToggle').addEventListener('click',()=>{const content=$('drawerContent'),open=content.hidden;content.hidden=!open;$('drawerToggle').setAttribute('aria-expanded',String(open));$('drawerToggle').querySelector('b').textContent=open?'−':'+';});
   }
 
-  function init(){loadSettings();$('scenarioSelect').value=state.scenario;$('faultSelect').value=state.fault;renderScenario();renderReference();renderAlarmEditor();renderLog();bind();render();if(!intervalId)intervalId=setInterval(tick,TICK_MS);}
+  function init(){loadSettings();$('scenarioSelect').value=state.scenario;$('faultSelect').value=state.fault;renderScenario();renderReference();renderAlarmEditor();renderLog();bind();render();const start=()=>{state.lastTs=performance.now();if(!intervalId)intervalId=setInterval(tick,TICK_MS);};window.addEventListener('movida:simulator-open',start);if(!document.body.classList.contains('auth-locked'))start();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

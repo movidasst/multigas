@@ -10,9 +10,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260906-ux1" />
-  <link rel="stylesheet" href="mobile.css?v=20260906-ux1" />
-  <link rel="stylesheet" href="guide.css?v=20260906-ux1" />
+  <link rel="stylesheet" href="styles.css?v=20260909-ux2" />
+  <link rel="stylesheet" href="mobile.css?v=20260909-ux2" />
+  <link rel="stylesheet" href="guide.css?v=20260909-ux2" />
+  <link rel="stylesheet" href="usability.css?v=20260909-ux2" />
 
 <style id="movida-logo-2026">
 img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:center!important;border-radius:50%!important;filter:drop-shadow(0 7px 12px rgba(0,32,91,.35))!important}
@@ -91,10 +92,10 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
     </header>
 
     <main class="workspace">
-      <section class="mission-rail panel">
+      <section id="scenarioPanel" class="mission-rail panel" aria-label="Escenario de práctica">
         <div class="panel-head">
           <div><span class="eyebrow">PRÁCTICA</span><h2>Escenario</h2></div>
-          <button id="newRunBtn" class="icon-btn" type="button" title="Reiniciar práctica">↻</button>
+          <button id="newRunBtn" class="icon-btn" type="button" title="Reiniciar práctica" aria-label="Reiniciar práctica">↻</button>
         </div>
         <label class="field-label" for="scenarioSelect">Ambiente</label>
         <select id="scenarioSelect" class="select-control">
@@ -149,21 +150,21 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
             <button type="button" data-profile="standard" class="active">4G estándar</button>
             <button type="button" data-profile="ph3">PH₃</button>
           </div>
-          <p class="microcopy">El perfil PH₃ sustituye el canal H₂S por fosfina.</p>
+          <p class="microcopy">PH₃ sustituye H₂S. Cambiar de perfil reinicia los indicadores de exposición y requiere repetir BUMP.</p>
         </div>
 
         <div class="fault-block">
-          <span class="field-label">Condición didáctica</span>
+          <label class="field-label" for="faultSelect">Condición didáctica</label>
           <select id="faultSelect" class="select-control small">
             <option value="none">Sin falla</option>
             <option value="blocked">Entrada de sensor parcialmente bloqueada</option>
-            <option value="poisoned">Sensor LEL sensibilizado / envenenado</option>
+            <option value="poisoned">Sensor LEL afectado / envenenado</option>
             <option value="airflow">Velocidad de aire &gt; 6 m/s</option>
           </select>
         </div>
       </section>
 
-      <section class="instrument-stage">
+      <section id="instrumentPanel" class="instrument-stage" aria-label="Detector y controles">
         <div class="stage-ambient" aria-hidden="true"><span></span><span></span><span></span></div>
         <div class="device-wrap">
           <div id="device" class="gas-device state-offline" aria-label="Detector multigás virtual">
@@ -196,7 +197,7 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
               </div>
               <div class="device-buttons" aria-label="Botones del detector">
                 <button id="upBtn" type="button" aria-label="Subir / página anterior"><span>▲</span></button>
-                <button id="powerBtn" class="power-key" type="button" aria-label="Power / aceptar"><span>●</span><small>POWER</small></button>
+                <button id="powerBtn" class="power-key" type="button" aria-label="Encender detector"><span>●</span><small>POWER</small></button>
                 <button id="downBtn" type="button" aria-label="Bajar / página siguiente"><span>▼</span></button>
               </div>
               <div class="device-badge">SIMULACIÓN DIDÁCTICA</div>
@@ -206,6 +207,8 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
           <div class="device-shadow"></div>
         </div>
 
+        <div id="operationFeedback" class="operation-feedback" role="status" aria-live="polite">Enciende el detector para comenzar.</div>
+        <button id="skipFasBtn" class="skip-fas" type="button" hidden>Omitir FAS y continuar</button>
         <div class="quick-actions" aria-label="Acciones rápidas">
           <button id="fasBtn" type="button"><span>01</span><b>FAS</b><small>Aire fresco</small></button>
           <button id="bumpBtn" type="button"><span>02</span><b>BUMP</b><small>Prueba funcional</small></button>
@@ -214,7 +217,7 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
         </div>
       </section>
 
-      <aside class="data-rail panel">
+      <aside id="readingPanel" class="data-rail panel" aria-label="Interpretación y registro">
         <div class="panel-head">
           <div><span class="eyebrow">INTERPRETACIÓN</span><h2>Lectura</h2></div>
           <span id="qualityDot" class="quality-dot" title="Calidad de medición"></span>
@@ -226,9 +229,12 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
         </div>
 
         <div class="tab-panel active" data-panel="exposure">
+          <label class="field-label" for="exposureGas">Canal que quieres analizar</label>
+          <select id="exposureGas" class="select-control"><option value="toxic">H₂S</option><option value="co">CO · monóxido de carbono</option></select>
+          <p id="exposureExplanation" class="reading-explanation"></p>
           <div class="metric-grid">
-            <article><span>STEL / EC</span><strong id="stelValue">0.00</strong><small id="stelGas">ppm · tóxico</small></article>
-            <article><span>TWA / ED</span><strong id="twaValue">0.00</strong><small id="twaGas">ppm · tóxico</small></article>
+            <article><span>STEL · 15 min</span><strong id="stelValue">0.00</strong><small id="stelGas">ppm · tóxico</small></article>
+            <article><span>TWA · 8 h</span><strong id="twaValue">0.00</strong><small id="twaGas">ppm · tóxico</small></article>
             <article><span>PEAK</span><strong id="peakValue">0</strong><small id="peakGas">ppm</small></article>
             <article><span>O₂ MIN</span><strong id="o2MinValue">20.8</strong><small>% vol</small></article>
           </div>
@@ -239,7 +245,7 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
           </div>
           <div class="time-card">
             <div><b>Reloj de exposición acelerado</b><span id="simTimeText">00:00 simulados</span></div>
-            <label class="switch"><input id="acceleratedTime" type="checkbox" checked /><span></span></label>
+            <label class="switch"><input id="acceleratedTime" aria-label="Acelerar el reloj de exposición 120 veces" type="checkbox" checked /><span></span></label>
           </div>
         </div>
 
@@ -257,7 +263,8 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
           <div id="eventLog" class="event-log"><p class="empty-log">Aún no hay registros.</p></div>
         </div>
 
-        <div id="coach" class="coach-card">
+        <p id="qualityText" class="quality-text"></p>
+        <div id="coach" class="coach-card" role="status" aria-live="polite">
           <span class="coach-icon">i</span>
           <div><b id="coachTitle">Antes de medir</b><p id="coachText">Enciende el detector y observa la secuencia de autoprueba antes de entrar al área.</p></div>
         </div>
@@ -274,6 +281,7 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
       </div>
     </section>
 
+    <nav class="practice-nav" aria-label="Navegación de la práctica"><a href="#instrumentPanel" aria-current="location">Detector</a><a href="#scenarioPanel">Escenario</a><a href="#readingPanel">Lectura</a><a href="https://laboratorio.movidasst.com">Laboratorio</a></nav>
     <footer class="app-footer"><span>La Movida SST+ · De la Reacción a la Prevención</span><a href="https://www.movidasst.com" target="_blank" rel="noopener">www.movidasst.com</a><span>SIMULACIÓN DIDÁCTICA</span></footer>
 
     <aside id="guideCoach" class="guide-coach" hidden aria-live="polite" aria-atomic="true">
@@ -324,6 +332,11 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
         <h2 id="helpTitle">¿Qué hace cada función?</h2>
         <input id="manualSearch" class="manual-search" type="search" placeholder="Busca FAS, BUMP, STEL, PH₃, LEL…" autocomplete="off" />
         <div class="manual-grid">
+          <article class="manual-topic"><h3>¿Qué representa cada unidad?</h3><p>O₂: porcentaje en volumen. LEL: porcentaje del límite inferior de explosividad, no porcentaje de gas en volumen. CO, H₂S y PH₃: partes por millón (ppm). Solo se detectan los gases de los sensores instalados.</p></article>
+          <article class="manual-topic"><h3>Tiempo y respuesta del sensor</h3><p>El modo ×120 acelera la acumulación de exposición: 1 segundo equivale a 2 minutos. La respuesta del sensor conserva su tiempo didáctico en segundos. Tras cambiar de nivel, espera el tiempo indicado; no representa el tiempo de transporte por una manguera real.</p></article>
+          <article class="manual-topic"><h3>Cómo interpretar STEL y TWA</h3><p>STEL integra los últimos 15 minutos simulados y divide entre 15; antes de completar esa ventana se indica que es parcial. TWA acumula concentración × tiempo desde el inicio de la práctica o del perfil y divide entre 480 minutos. No es una predicción de la jornada completa. Los valores mostrados no sustituyen una evaluación higiénica.</p></article>
+          <article class="manual-topic"><h3>Ante una alarma</h3><p>Reconocer o silenciar una alarma no elimina la condición detectada. Una lectura sin alarma tampoco autoriza el ingreso: hay que considerar los peligros no medidos, el estado del instrumento y el procedimiento de trabajo.</p></article>
+          <article class="manual-topic"><h3>Referencia y alcance</h3><p>Manual MSA ALTAIR 4XR, 10175896/12 (2025), apartados 4.2.1, 4.3 y 4.7–4.10. El MXG–4 es un equipo ficticio. PH₃ es una ampliación didáctica, no una configuración atribuida al ALTAIR 4XR. FAS contaminado representa un sesgo simplificado; el equipo real tiene límites de aceptación de FAS.</p></article>
           <article class="manual-topic"><h3>POWER</h3><p>Enciende/apaga con un toque. Al encender, observa la <b>autoprueba</b> antes de continuar.</p></article>
           <article class="manual-topic"><h3>FAS</h3><p><b>Fresh Air Setup</b>: establece el cero en aire fresco conocido. No sustituye BUMP ni calibración.</p></article>
           <article class="manual-topic"><h3>BUMP</h3><p>Prueba funcional: comprueba que los sensores respondan y que las alarmas se activen.</p></article>
@@ -345,9 +358,9 @@ img[src*="logo-movida-sst-plus"]{object-fit:contain!important;object-position:ce
     </dialog>
   </div>
 
-  <script src="auth.js?v=20260906-ux1" defer></script>
-  <script src="app.js?v=20260906-ux1" defer></script>
-  <script src="mobile.js?v=20260906-ux1" defer></script>
-  <script src="guide.js?v=20260906-ux1" defer></script>
+  <script src="auth.js?v=20260909-ux2" defer></script>
+  <script src="app.js?v=20260909-ux2" defer></script>
+  <script src="mobile.js?v=20260909-ux2" defer></script>
+  <script src="guide.js?v=20260909-ux2" defer></script>
 </body>
 </html>
